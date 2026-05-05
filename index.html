@@ -651,6 +651,90 @@ function MFGProductionApp() {
     loadData();
   }, []);
   
+  // Google Drive 최신본 자동 로드 (앱 시작 시, IndexedDB 로딩 후 1회)
+  const autoLoadDriveRef = React.useRef(false);
+  useEffect(() => {
+    if (isLoading) return;
+    if (autoLoadDriveRef.current) return;
+    autoLoadDriveRef.current = true;
+    
+    (async () => {
+      try {
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxLFrxbAaBt1bBa3SUdDY9wY48tvt85mEDaj3tiKhyw_R7oJCC9GbOWLfWbdSohnQtB/exec';
+        const PREFIX = 'tcp-backup-';
+        
+        // 1) 파일 목록 조회 (modified 내림차순으로 정렬되어 옴)
+        const listRes = await fetch(`${GAS_URL}?action=list`);
+        const listJson = await listRes.json();
+        if (!listJson || !listJson.ok || !Array.isArray(listJson.files)) return;
+        
+        // 2) tcp-backup- prefix 필터, 최신 1개 선택
+        const matches = listJson.files.filter(f =>
+          f && f.name && f.name.indexOf(PREFIX) === 0 && f.name.toLowerCase().endsWith('.json')
+        );
+        if (matches.length === 0) return;
+        const latest = matches[0];
+        
+        // 3) 해당 파일 로드
+        const loadRes = await fetch(`${GAS_URL}?action=load&id=${encodeURIComponent(latest.id)}`);
+        const loadJson = await loadRes.json();
+        if (!loadJson || !loadJson.ok || !loadJson.data) return;
+        
+        const data = loadJson.data;
+        const defaultDefectCodes = [
+          'A(치수)', 'B(갈라짐)', 'C(파손)', 'D(이물질)', 'DF(Door힘)',
+          'E(Burr)', 'ES(ESTest)', 'F(미성형)', 'G(형상)', 'H(긁힘)',
+          'J(도금)', 'K(원인)', 'L(녹)', 'M(혼입)', 'N(가공)',
+          'O(색상)', 'OP', 'P(공정)', 'PM(설비)', 'R(찢어짐)',
+          'T(공정누락)', 'U(미판정)', 'VF(Flow)', 'VJ(Endplav 치수)', 'VL(Leak)', 'WP(이종품)'
+        ];
+        const loadedTCP = data.settings && data.settings.TCP ? data.settings.TCP : {};
+        const loadedFE = data.settings && data.settings.FE ? data.settings.FE : {};
+        const newSettings = {
+          common: (data.settings && data.settings.common) ? data.settings.common : { downtimeTypes: [] },
+          TCP: {
+            ctBaseMinutes: loadedTCP.ctBaseMinutes || 60,
+            lines: loadedTCP.lines || [],
+            items: loadedTCP.items || [],
+            defectTypes: loadedTCP.defectTypes || [],
+            defectCodes: loadedTCP.defectCodes || defaultDefectCodes
+          },
+          FE: {
+            ctBaseMinutes: loadedFE.ctBaseMinutes || 60,
+            lines: loadedFE.lines || [],
+            items: loadedFE.items || [],
+            defectTypes: loadedFE.defectTypes || [],
+            defectCodes: loadedFE.defectCodes || defaultDefectCodes
+          }
+        };
+        setProductionLogs(data.productionLogs || []);
+        setDowntimeLogs(data.downtimeLogs || []);
+        const mergedDef = [
+          ...(data.defectLogs || []),
+          ...((data.processDefectLogs || []).map(d => ({
+            ...d,
+            originalType: d.originalType || 'process'
+          })))
+        ];
+        setDefectLogs(mergedDef);
+        setProcessDefectLogs([]);
+        setReworkLogs(data.reworkLogs || []);
+        setSettings(newSettings);
+        setEmployees(data.employees || []);
+        setOeeTargets(data.oeeTargets || {});
+        setLineAssignments(data.lineAssignments || {});
+        setSlotStatus(data.slotStatus || {});
+        setSkillData(data.skillData || { TCP: {}, FE: {} });
+        setAbsenceReasons(data.absenceReasons || {});
+        setLotData(data.lotData || {});
+        
+        setFormError('✅ 자동 적용');
+      } catch (err) {
+        console.warn('Drive 자동 로드 스킵:', err);
+      }
+    })();
+  }, [isLoading]);
+  
   // IndexedDB에 데이터 자동 저장 (데이터 변경 시)
   useEffect(() => {
     if (isLoading) return; // 초기 로딩 중에는 저장하지 않음
@@ -2389,8 +2473,18 @@ function MFGProductionApp() {
       return `종료시간은 ${logStart} ~ ${logEnd} 범위 내여야 합니다.`;
     }
     if (formStartTime && formEndTime) {
-      const startMin = parseInt(formStartTime.split(':')[0]) * 60 + parseInt(formStartTime.split(':')[1]);
-      const endMin = parseInt(formEndTime.split(':')[0]) * 60 + parseInt(formEndTime.split(':')[1]);
+      const toMin = (t) => parseInt(t.split(':')[0]) * 60 + parseInt(t.split(':')[1]);
+      const logStartMin = toMin(logStart);
+      const logEndMin = toMin(logEnd);
+      let startMin = toMin(formStartTime);
+      let endMin = toMin(formEndTime);
+      
+      // 로그 범위가 자정을 넘는 경우(야간조), 새벽 시간을 +1440분으로 정규화
+      if (logEndMin < logStartMin) {
+        if (startMin < logStartMin) startMin += 1440;
+        if (endMin < logStartMin) endMin += 1440;
+      }
+      
       if (endMin <= startMin) {
         return '종료시간은 시작시간보다 늦어야 합니다.';
       }
