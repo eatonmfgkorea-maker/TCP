@@ -189,6 +189,12 @@ function MFGProductionApp() {
     reworkSubType: '',
     quantity: ''
   });
+  
+  // 수정 모드 state
+  const [editingDowntimeId, setEditingDowntimeId] = useState(null);
+  const [editingDefectId, setEditingDefectId] = useState(null);
+  const [editingProcessDefectId, setEditingProcessDefectId] = useState(null);
+  const [editingReworkId, setEditingReworkId] = useState(null);
 
   const [formData, setFormData] = useState({
     productionDate: new Date().toISOString().split('T')[0],
@@ -2547,14 +2553,40 @@ function MFGProductionApp() {
     
     // 선택한 비가동 유형의 category 가져오기
     const selectedType = settings.common.downtimeTypes.find(t => t.name === downtimeForm.downtimeType);
-    const newDowntime = {
-      ...downtimeForm,
-      downtimeCategory: selectedType?.category || '비가동',
-      productionLogId: selectedLogId,
-      id: Date.now(),
-      createdAt: new Date().toLocaleString('ko-KR')
-    };
-    setDowntimeLogs(prev => [newDowntime, ...prev]);
+    
+    if (editingDowntimeId) {
+      setDowntimeLogs(prev => prev.map(d => 
+        d.id === editingDowntimeId 
+          ? { ...d, ...downtimeForm, downtimeCategory: selectedType?.category || '비가동', updatedAt: new Date().toLocaleString('ko-KR') }
+          : d
+      ));
+      setEditingDowntimeId(null);
+    } else {
+      const newDowntime = {
+        ...downtimeForm,
+        downtimeCategory: selectedType?.category || '비가동',
+        productionLogId: selectedLogId,
+        id: Date.now(),
+        createdAt: new Date().toLocaleString('ko-KR')
+      };
+      setDowntimeLogs(prev => [newDowntime, ...prev]);
+    }
+    setDowntimeForm({ downtimeType: '', startTime: '', endTime: '', content: '', isEtc: false });
+  };
+  
+  // 비가동 수정 시작/취소
+  const startEditDowntime = (log) => {
+    setDowntimeForm({
+      downtimeType: log.downtimeType || '',
+      startTime: log.startTime || '',
+      endTime: log.endTime || '',
+      content: log.content || '',
+      isEtc: log.isEtc || false
+    });
+    setEditingDowntimeId(log.id);
+  };
+  const cancelEditDowntime = () => {
+    setEditingDowntimeId(null);
     setDowntimeForm({ downtimeType: '', startTime: '', endTime: '', content: '', isEtc: false });
   };
   
@@ -2632,13 +2664,39 @@ function MFGProductionApp() {
       setFormError('모든 필드를 입력해주세요.');
       return;
     }
-    const newDefect = {
-      ...defectForm,
-      productionLogId: selectedLogId,
-      id: Date.now(),
-      createdAt: new Date().toLocaleString('ko-KR')
-    };
-    setDefectLogs(prev => [newDefect, ...prev]);
+    if (editingDefectId) {
+      setDefectLogs(prev => prev.map(d => 
+        d.id === editingDefectId 
+          ? { ...d, ...defectForm, updatedAt: new Date().toLocaleString('ko-KR') }
+          : d
+      ));
+      setEditingDefectId(null);
+    } else {
+      const newDefect = {
+        ...defectForm,
+        productionLogId: selectedLogId,
+        id: Date.now(),
+        createdAt: new Date().toLocaleString('ko-KR')
+      };
+      setDefectLogs(prev => [newDefect, ...prev]);
+    }
+    setDefectForm({ station: '', defectType: '', defectSubType: '', quantity: '', boms: [], bomDefectCodes: {}, selectedBoms: [] });
+  };
+  
+  const startEditDefect = (log) => {
+    setDefectForm({
+      station: log.station || '',
+      defectType: log.defectType || '',
+      defectSubType: log.defectSubType || '',
+      quantity: log.quantity || '',
+      boms: log.boms || [],
+      bomDefectCodes: log.bomDefectCodes || {},
+      selectedBoms: log.selectedBoms || []
+    });
+    setEditingDefectId(log.id);
+  };
+  const cancelEditDefect = () => {
+    setEditingDefectId(null);
     setDefectForm({ station: '', defectType: '', defectSubType: '', quantity: '', boms: [], bomDefectCodes: {}, selectedBoms: [] });
   };
   
@@ -2672,13 +2730,36 @@ function MFGProductionApp() {
       setFormError('모든 필드를 입력해주세요.');
       return;
     }
-    const newRework = {
-      ...reworkForm,
-      productionLogId: selectedLogId,
-      id: Date.now(),
-      createdAt: new Date().toLocaleString('ko-KR')
-    };
-    setReworkLogs(prev => [newRework, ...prev]);
+    if (editingReworkId) {
+      setReworkLogs(prev => prev.map(r => 
+        r.id === editingReworkId 
+          ? { ...r, ...reworkForm, updatedAt: new Date().toLocaleString('ko-KR') }
+          : r
+      ));
+      setEditingReworkId(null);
+    } else {
+      const newRework = {
+        ...reworkForm,
+        productionLogId: selectedLogId,
+        id: Date.now(),
+        createdAt: new Date().toLocaleString('ko-KR')
+      };
+      setReworkLogs(prev => [newRework, ...prev]);
+    }
+    setReworkForm({ station: '', reworkType: '', reworkSubType: '', quantity: '' });
+  };
+  
+  const startEditRework = (log) => {
+    setReworkForm({
+      station: log.station || '',
+      reworkType: log.reworkType || '',
+      reworkSubType: log.reworkSubType || '',
+      quantity: log.quantity || ''
+    });
+    setEditingReworkId(log.id);
+  };
+  const cancelEditRework = () => {
+    setEditingReworkId(null);
     setReworkForm({ station: '', reworkType: '', reworkSubType: '', quantity: '' });
   };
   
@@ -5543,10 +5624,21 @@ function MFGProductionApp() {
                   }
                   
                   // 해당 섹션, 해당 날짜의 생산일지 필터링
-                  const dayLogs = productionLogs.filter(log => 
-                    log.section === activeSection && 
-                    log.productionDate === viewStartDate
-                  );
+                  // viewStartDate의 다음 날 계산 (야간조 연속분 처리용)
+                  const nextDateObj = new Date(viewStartDate);
+                  nextDateObj.setDate(nextDateObj.getDate() + 1);
+                  const nextDateStr = `${nextDateObj.getFullYear()}-${String(nextDateObj.getMonth()+1).padStart(2,'0')}-${String(nextDateObj.getDate()).padStart(2,'0')}`;
+                  
+                  const dayLogs = productionLogs.filter(log => {
+                    if (log.section !== activeSection) return false;
+                    if (log.productionDate === viewStartDate) return true;
+                    // 야간조 연속분 (다음날 productionDate + startTime<08:00)
+                    if (log.productionDate === nextDateStr) {
+                      const [sh] = (log.startTime || '00:00').split(':').map(Number);
+                      if (sh < 8) return true;
+                    }
+                    return false;
+                  });
                   
                   // 시간 문자열을 숫자로 변환 (예: "08:30" -> 8.5)
                   const timeToNumber = (timeStr) => {
@@ -5595,6 +5687,17 @@ function MFGProductionApp() {
                     
                     // 야간 근무 처리 (종료가 시작보다 작으면 다음날)
                     if (endHour < startHour) {
+                      endHour += 24;
+                    }
+                    
+                    // 야간조 연속분 처리: 다음날 productionDate + 새벽 시작 → 익일로 표시 (+24)
+                    if (log.productionDate === nextDateStr) {
+                      startHour += 24;
+                      endHour += 24;
+                    }
+                    // 같은 일자에 야간 연속분이 잘못 들어간 경우 (startHour<8, endHour<=8) → +24
+                    else if (startHour < 8 && endHour <= 8) {
+                      startHour += 24;
                       endHour += 24;
                     }
                     
@@ -6142,35 +6245,26 @@ function MFGProductionApp() {
                     });
                   });
                   
-                  // 생산일지에서 근무시간 집계
+                  // 1단계: 작업자×일자×주야별 시간 구간 모으기 (중복 시간대 union 처리)
+                  const workerDayIntervals = {};
+                  
                   productionLogs
                     .filter(log => log.section === activeSection)
                     .forEach(log => {
                       const logDate = new Date(log.productionDate);
                       const weekInfo = getWeekInfo(logDate);
-                      const weekKey = `${weekInfo.year}-W${weekInfo.week}`;
                       
-                      // 해당 주차가 집계 대상인지 확인
                       if (!weeks.some(w => w.year === weekInfo.year && w.week === weekInfo.week)) return;
                       
-                      // 근무시간 계산
-                      const startMinutes = timeToMinutes(log.startTime);
-                      const endMinutes = timeToMinutes(log.endTime);
-                      let workMinutes = endMinutes >= startMinutes 
-                        ? endMinutes - startMinutes 
-                        : (24 * 60 - startMinutes) + endMinutes;
+                      const startMin = timeToMinutes(log.startTime);
+                      let endMin = timeToMinutes(log.endTime);
+                      const shift = log.shift || '주간';
+                      if (endMin < startMin) endMin += 24 * 60;
                       
-                      // 식사시간 제외 (8시간 이상 근무 시 1시간 제외)
-                      if (workMinutes >= 480) workMinutes -= 60;
-                      
-                      const workHours = workMinutes / 60;
-                      
-                      // 작업자들에게 시간 배분
                       const workerIds = log.selectedWorkers || [];
                       workerIds.forEach(workerIdOrName => {
                         let workerName;
                         if (typeof workerIdOrName === 'object' && workerIdOrName !== null) {
-                          // 객체 형식 {id, shared}
                           const emp = employees.find(e => e.id === workerIdOrName.id);
                           workerName = emp?.name;
                         } else if (typeof workerIdOrName === 'string' && !workerIdOrName.match(/^\d+$/)) {
@@ -6179,15 +6273,52 @@ function MFGProductionApp() {
                           const emp = employees.find(e => e.id === Number(workerIdOrName) || e.name === workerIdOrName);
                           workerName = emp?.name;
                         }
+                        if (!workerName) return;
                         
-                        if (workerName && workerWeeklyHours[workerName]) {
-                          if (!workerWeeklyHours[workerName][weekKey]) {
-                            workerWeeklyHours[workerName][weekKey] = 0;
-                          }
-                          workerWeeklyHours[workerName][weekKey] += workHours;
-                        }
+                        if (!workerDayIntervals[workerName]) workerDayIntervals[workerName] = {};
+                        const key = `${log.productionDate}|${shift}`;
+                        if (!workerDayIntervals[workerName][key]) workerDayIntervals[workerName][key] = [];
+                        workerDayIntervals[workerName][key].push([startMin, endMin]);
                       });
                     });
+                  
+                  // 2단계: 작업자별 일자별 union + 식사시간 제외 → 주차별 합산
+                  Object.entries(workerDayIntervals).forEach(([workerName, dayMap]) => {
+                    if (!workerWeeklyHours[workerName]) return;
+                    
+                    Object.entries(dayMap).forEach(([dayKey, intervals]) => {
+                      const [dateStr, shift] = dayKey.split('|');
+                      const weekInfo = getWeekInfo(new Date(dateStr));
+                      const weekKey = `${weekInfo.year}-W${weekInfo.week}`;
+                      
+                      const sorted = intervals.slice().sort((a, b) => a[0] - b[0]);
+                      const merged = [];
+                      for (const [s, e] of sorted) {
+                        if (merged.length && merged[merged.length-1][1] >= s) {
+                          merged[merged.length-1][1] = Math.max(merged[merged.length-1][1], e);
+                        } else {
+                          merged.push([s, e]);
+                        }
+                      }
+                      
+                      const meals = shift === '야간'
+                        ? [[1470, 1530], [1770, 1800]]
+                        : [[750, 810], [1050, 1080]];
+                      
+                      let totalMin = 0;
+                      for (const [s, e] of merged) {
+                        let mins = e - s;
+                        for (const [ms, me] of meals) {
+                          const ov = Math.max(0, Math.min(e, me) - Math.max(s, ms));
+                          mins -= ov;
+                        }
+                        totalMin += Math.max(0, mins);
+                      }
+                      
+                      if (workerWeeklyHours[workerName][weekKey] === undefined) workerWeeklyHours[workerName][weekKey] = 0;
+                      workerWeeklyHours[workerName][weekKey] += totalMin / 60;
+                    });
+                  });
                   
                   // 52시간 초과자 확인
                   const hasViolation = Object.values(workerWeeklyHours).some(weekData =>
@@ -6561,13 +6692,24 @@ function MFGProductionApp() {
                       </div>
                     );
                   })()}
-                  <button
-                    type="button"
-                    onClick={handleDowntimeSubmit}
-                    className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-orange-700"
-                  >
-                    저장
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDowntimeSubmit}
+                      className={`flex-1 text-white py-2 px-4 rounded-lg font-medium ${editingDowntimeId ? 'bg-blue-600 hover:bg-blue-700' : 'bg-orange-600 hover:bg-orange-700'}`}
+                    >
+                      {editingDowntimeId ? '✓ 수정 완료' : '저장'}
+                    </button>
+                    {editingDowntimeId && (
+                      <button
+                        type="button"
+                        onClick={cancelEditDowntime}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+                      >
+                        취소
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -6615,6 +6757,13 @@ function MFGProductionApp() {
                             <td className="px-3 py-2 text-sm border-b text-center">{log.endTime}</td>
                             <td className="px-3 py-2 text-sm border-b">{log.content}</td>
                             <td className="px-3 py-2 text-sm border-b text-center">
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); startEditDowntime(log); }}
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded text-xs mr-1"
+                              >
+                                수정
+                              </button>
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); deleteDowntime(log.id); }}
@@ -6845,13 +6994,24 @@ function MFGProductionApp() {
                       </div>
                     </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={handleDefectSubmit}
-                    className="w-full bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700"
-                  >
-                    저장
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDefectSubmit}
+                      className={`flex-1 text-white py-2 px-4 rounded-lg font-medium ${editingDefectId ? 'bg-blue-600 hover:bg-blue-700' : 'bg-red-600 hover:bg-red-700'}`}
+                    >
+                      {editingDefectId ? '✓ 수정 완료' : '저장'}
+                    </button>
+                    {editingDefectId && (
+                      <button
+                        type="button"
+                        onClick={cancelEditDefect}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+                      >
+                        취소
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -6906,6 +7066,13 @@ function MFGProductionApp() {
                             <td className="px-3 py-2 text-sm border-b"><span className="px-2 py-1 bg-red-50 text-red-700 rounded text-xs">{log.defectSubType || '-'}</span></td>
                             <td className="px-3 py-2 text-sm border-b text-right font-semibold text-red-600">{Number(log.quantity).toLocaleString()}개</td>
                             <td className="px-3 py-2 text-sm border-b text-center">
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); startEditDefect(log); }}
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded text-xs mr-1"
+                              >
+                                수정
+                              </button>
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); deleteDefect(log.id); }}
@@ -7362,13 +7529,24 @@ function MFGProductionApp() {
                       min="1"
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleReworkSubmit}
-                    className="w-full bg-amber-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-amber-700"
-                  >
-                    저장
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleReworkSubmit}
+                      className={`flex-1 text-white py-2 px-4 rounded-lg font-medium ${editingReworkId ? 'bg-blue-600 hover:bg-blue-700' : 'bg-amber-600 hover:bg-amber-700'}`}
+                    >
+                      {editingReworkId ? '✓ 수정 완료' : '저장'}
+                    </button>
+                    {editingReworkId && (
+                      <button
+                        type="button"
+                        onClick={cancelEditRework}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+                      >
+                        취소
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -7404,6 +7582,13 @@ function MFGProductionApp() {
                             <td className="px-3 py-2 text-sm border-b"><span className="px-2 py-1 bg-amber-50 text-amber-700 rounded text-xs">{log.reworkSubType}</span></td>
                             <td className="px-3 py-2 text-sm border-b text-right font-semibold text-amber-600">{Number(log.quantity).toLocaleString()}개</td>
                             <td className="px-3 py-2 text-sm border-b text-center">
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); startEditRework(log); }}
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded text-xs mr-1"
+                              >
+                                수정
+                              </button>
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); deleteRework(log.id); }}
