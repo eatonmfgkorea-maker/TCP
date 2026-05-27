@@ -223,6 +223,12 @@ function MFGProductionApp() {
   const [viewStartDate, setViewStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [viewEndDate, setViewEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [viewSubTab, setViewSubTab] = useState('production'); // production, downtime, defect, processDefect, rework, manHour
+  
+  // ===== 엑셀 출력 모달 state =====
+  const [exportModalType, setExportModalType] = useState(null); // 'production' | 'downtime' | 'defect' | 'rework' | null
+  const _expNow = new Date();
+  const [exportStartDate, setExportStartDate] = useState(`${_expNow.getFullYear()}-${String(_expNow.getMonth()+1).padStart(2,'0')}-01`);
+  const [exportEndDate, setExportEndDate] = useState(_expNow.toISOString().split('T')[0]);
   const [viewItemFilter, setViewItemFilter] = useState(''); // 아이템 필터 (빈 문자열 = 전체)
   const [viewProductionFilter, setViewProductionFilter] = useState({ lineName: '', item: '', partNo: '', shift: '' }); // 조회 생산일지 필터
   const [showViewProdFilter, setShowViewProdFilter] = useState(null); // 조회 생산일지 필터 드롭다운
@@ -566,8 +572,20 @@ function MFGProductionApp() {
   const [newEmployeeJoinDate, setNewEmployeeJoinDate] = useState(new Date().toISOString().split('T')[0]);
   const [showResigned, setShowResigned] = useState(false); // 퇴사자 표시 여부
   
-  // 인원 탭 서브탭: 'manage' (인원관리) / 'assign' (인원편성) / 'skill' (스킬)
+  // 인원 탭 서브탭: 'manage' (인원관리) / 'assign' (인원편성) / 'otvac' (OT/휴가)
   const [personnelSubTab, setPersonnelSubTab] = useState('manage');
+  
+  // OT/휴가 데이터: { 'YYYY-MM-DD': { 'empName': { type: 'work'|'vacation', shift: '주간'|'야간', vacation: '연차'|..., ot: 숫자 } } }
+  const [otVacationData, setOtVacationData] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tcpOtVacationData') || '{}'); } catch (e) { return {}; }
+  });
+  // 일자별/월별 보기 토글
+  const [otvacView, setOtvacView] = useState('daily');
+  // 일자별 입력 화면의 선택된 일자
+  const [otvacDate, setOtvacDate] = useState(() => new Date().toISOString().split('T')[0]);
+  // 월별 조회 화면의 연/월
+  const [otvacYear, setOtvacYear] = useState(new Date().getFullYear());
+  const [otvacMonth, setOtvacMonth] = useState(new Date().getMonth() + 1);
   
   // 인원편성 데이터: { 'YYYY-MM-DD': { 'TCP': { '주간': { '라인명': [직원ID, ...] }, '야간': { ... } }, 'FE': { ... } } }
   const [lineAssignments, setLineAssignments] = useState({});
@@ -661,7 +679,8 @@ function MFGProductionApp() {
       slotStatus,
       skillData,
       absenceReasons,
-      lotData
+      lotData,
+      otVacationData
     };
     
     const jsonStr = JSON.stringify(dataToMeasure);
@@ -684,7 +703,7 @@ function MFGProductionApp() {
       percent: usagePercent,
       bytes
     };
-  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData]);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData]);
   
   // IndexedDB에서 데이터 로드 (앱 시작 시)
   useEffect(() => {
@@ -744,6 +763,7 @@ function MFGProductionApp() {
           setSkillData(savedData.skillData || { TCP: {}, FE: {} });
           setAbsenceReasons(savedData.absenceReasons || {});
           setLotData(savedData.lotData || {});
+          setOtVacationData(savedData.otVacationData || {});
           
           console.log('✅ 데이터 로드 완료');
         }
@@ -832,6 +852,7 @@ function MFGProductionApp() {
         setSkillData(data.skillData || { TCP: {}, FE: {} });
         setAbsenceReasons(data.absenceReasons || {});
         setLotData(data.lotData || {});
+        setOtVacationData(data.otVacationData || {});
         
         setFormError('✅ 자동 적용');
       } catch (err) {
@@ -858,7 +879,8 @@ function MFGProductionApp() {
         slotStatus,
         skillData,
         absenceReasons,
-        lotData
+        lotData,
+        otVacationData
       };
       
       const success = await saveToIndexedDB('mfgAppData', dataToSave);
@@ -872,7 +894,7 @@ function MFGProductionApp() {
     // 디바운스: 500ms 후 저장
     const timer = setTimeout(saveData, 500);
     return () => clearTimeout(timer);
-  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, isLoading]);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, isLoading]);
   
   // 직원 추가
   const addEmployee = () => {
@@ -2880,6 +2902,157 @@ function MFGProductionApp() {
   };
   
   const getProductionLogById = (id) => productionLogs.find(log => log.id === id);
+  
+  // ===== 조회 탭 엑셀 출력 함수 =====
+  const handleExportLogs = (type, startDate, endDate) => {
+    if (typeof XLSX === 'undefined') {
+      alert('엑셀 라이브러리 로딩 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    const empMap = {};
+    employees.forEach(e => { empMap[e.id] = e.name; });
+    const getWorkerNames = (sw) => {
+      if (!Array.isArray(sw)) return '';
+      return sw.map(w => {
+        const id = typeof w === 'object' ? w.id : w;
+        return empMap[id] || (typeof w === 'string' && !w.match(/^\d+$/) ? w : '');
+      }).filter(Boolean).join(', ');
+    };
+    const minDiff = (s, e) => {
+      if (!s || !e) return 0;
+      const [sh, sm] = s.split(':').map(Number);
+      const [eh, em] = e.split(':').map(Number);
+      let sm2 = sh*60+sm, em2 = eh*60+em;
+      if (em2 < sm2) em2 += 24*60;
+      return em2 - sm2;
+    };
+    const filteredProdLogs = productionLogs.filter(l => 
+      l.section === activeSection && l.productionDate >= startDate && l.productionDate <= endDate
+    );
+    const prodLogMap = {};
+    filteredProdLogs.forEach(l => { prodLogMap[l.id] = l; });
+    
+    let data = [];
+    let sheetName = '';
+    
+    if (type === 'production') {
+      sheetName = '생산일지';
+      data = filteredProdLogs.map(l => ({
+        '일자': l.productionDate,
+        '라인': l.lineName,
+        '주야': l.shift,
+        '아이템': l.item || '',
+        'P/No': l.partNo || '',
+        'Lot No': l.lotNo || '',
+        '시작': l.startTime || '',
+        '종료': l.endTime || '',
+        '시간(분)': minDiff(l.startTime, l.endTime),
+        '계획수량': parseFloat(l.planQuantity) || 0,
+        '양품수량': parseFloat(l.goodQuantity) || 0,
+        '계획시간(분)': parseFloat(l.planTime) || 0,
+        '작업자': getWorkerNames(l.selectedWorkers),
+        '인원수': Array.isArray(l.selectedWorkers) ? l.selectedWorkers.length : 0,
+        '비고': l.note || ''
+      }));
+    } else if (type === 'downtime') {
+      sheetName = '비가동';
+      data = downtimeLogs.filter(d => prodLogMap[d.productionLogId]).map(d => {
+        const l = prodLogMap[d.productionLogId];
+        return {
+          '일자': l.productionDate,
+          '라인': l.lineName,
+          '주야': l.shift,
+          '아이템': l.item || '',
+          'P/No': l.partNo || '',
+          'Lot No': l.lotNo || '',
+          '대분류': d.downtimeCategory || '',
+          '비가동 유형': d.downtimeType || '',
+          '소분류': d.downtimeSubType || '',
+          '시작': d.startTime || '',
+          '종료': d.endTime || '',
+          '시간(분)': minDiff(d.startTime, d.endTime) || (parseFloat(d.duration) || 0),
+          '사유/내용': d.content || ''
+        };
+      });
+    } else if (type === 'defect') {
+      sheetName = '불량';
+      // BOM과 코드 추출 헬퍼
+      const formatBoms = (log) => {
+        if (log.boms && log.boms.length > 0) {
+          return log.boms.map(b => `${b.name}${b.totalQty ? '('+b.totalQty+')' : ''}`).join(', ');
+        }
+        return log.bom || '';
+      };
+      const formatCodes = (log) => {
+        if (log.boms && log.boms.length > 0) {
+          return log.boms.map(b => (log.bomDefectCodes && log.bomDefectCodes[b.name]) || b.defectCode || '').filter(Boolean).join(', ');
+        }
+        return log.defectCode || '';
+      };
+      data = defectLogs.filter(d => prodLogMap[d.productionLogId]).map(d => {
+        const l = prodLogMap[d.productionLogId];
+        return {
+          '일자': l.productionDate,
+          '라인': l.lineName,
+          '주야': l.shift,
+          '아이템': l.item || '',
+          'P/No': l.partNo || '',
+          'Lot No': l.lotNo || '',
+          '공정(Station)': d.station || '',
+          '대분류': d.defectType || '',
+          '소분류': d.defectSubType || '',
+          'BOM(자재)': formatBoms(d),
+          '불량 코드': formatCodes(d),
+          '수량': parseFloat(d.quantity) || 0,
+          '비고': d.note || ''
+        };
+      });
+    } else if (type === 'rework') {
+      sheetName = '재작업';
+      const formatBoms = (log) => {
+        if (log.boms && log.boms.length > 0) {
+          return log.boms.map(b => `${b.name}${b.totalQty ? '('+b.totalQty+')' : ''}`).join(', ');
+        }
+        return log.bom || '';
+      };
+      const formatCodes = (log) => {
+        if (log.boms && log.boms.length > 0) {
+          return log.boms.map(b => (log.bomDefectCodes && log.bomDefectCodes[b.name]) || b.defectCode || '').filter(Boolean).join(', ');
+        }
+        return log.defectCode || '';
+      };
+      data = reworkLogs.filter(r => prodLogMap[r.productionLogId]).map(r => {
+        const l = prodLogMap[r.productionLogId];
+        return {
+          '일자': l.productionDate,
+          '라인': l.lineName,
+          '주야': l.shift,
+          '아이템': l.item || '',
+          'P/No': l.partNo || '',
+          'Lot No': l.lotNo || '',
+          '공정(Station)': r.station || '',
+          '대분류': r.reworkType || '',
+          '소분류': r.reworkSubType || '',
+          'BOM(자재)': formatBoms(r),
+          '재작업 코드': formatCodes(r),
+          '수량': parseFloat(r.quantity) || 0,
+          '비고': r.note || ''
+        };
+      });
+    }
+    
+    if (data.length === 0) {
+      alert(`${sheetName}: 해당 기간(${startDate} ~ ${endDate})에 데이터가 없습니다.`);
+      return;
+    }
+    
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    const filename = `${activeSection}_${sheetName}_${startDate}_${endDate}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    setExportModalType(null);
+  };
 
   // 에러 메시지 자동 숨김 (3초 후)
   React.useEffect(() => {
@@ -2996,6 +3169,7 @@ function MFGProductionApp() {
                     slotStatus,
                     skillData,
                     absenceReasons,
+                    otVacationData,
                     savedAt: now.toISOString()
                   };
                   const jsonStr = JSON.stringify(dataToSave, null, 2);
@@ -4608,6 +4782,67 @@ function MFGProductionApp() {
         )}
 
         {/* 조회 탭 */}
+        {/* ===== 엑셀 출력 헬퍼 함수 ===== */}
+        {(() => {
+          // 출력 모달 표시 함수 (모달 띄울 때만 사용)
+          window.__triggerExport = (type) => {
+            setExportModalType(type);
+          };
+          return null;
+        })()}
+        {/* ===== 조회 탭 엑셀 출력 모달 ===== */}
+        {exportModalType && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={() => setExportModalType(null)}>
+            <div className="bg-white rounded-xl shadow-2xl p-6 w-[420px]" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-2xl">📤</span>
+                <h3 className="text-xl font-bold text-gray-800">
+                  {exportModalType === 'production' && '생산일지 출력'}
+                  {exportModalType === 'downtime' && '비가동 출력'}
+                  {exportModalType === 'defect' && '불량 출력'}
+                  {exportModalType === 'rework' && '재작업 출력'}
+                </h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">시작일</label>
+                  <input type="date" value={exportStartDate} onChange={(e) => setExportStartDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">종료일</label>
+                  <input type="date" value={exportEndDate} onChange={(e) => setExportEndDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => {
+                    const today = new Date().toISOString().split('T')[0];
+                    setExportStartDate(today); setExportEndDate(today);
+                  }} className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded">오늘</button>
+                  <button type="button" onClick={() => {
+                    const t = new Date();
+                    const s = new Date(t); s.setDate(t.getDate() - 6);
+                    setExportStartDate(s.toISOString().split('T')[0]); setExportEndDate(t.toISOString().split('T')[0]);
+                  }} className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded">최근 7일</button>
+                  <button type="button" onClick={() => {
+                    const t = new Date();
+                    const s = new Date(t.getFullYear(), t.getMonth(), 1);
+                    setExportStartDate(s.toISOString().split('T')[0]); setExportEndDate(t.toISOString().split('T')[0]);
+                  }} className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded">이번 달</button>
+                  <button type="button" onClick={() => {
+                    const t = new Date();
+                    const s = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+                    const e = new Date(t.getFullYear(), t.getMonth(), 0);
+                    setExportStartDate(s.toISOString().split('T')[0]); setExportEndDate(e.toISOString().split('T')[0]);
+                  }} className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded">지난 달</button>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
+                <button type="button" onClick={() => setExportModalType(null)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm">취소</button>
+                <button type="button" onClick={() => handleExportLogs(exportModalType, exportStartDate, exportEndDate)} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold">📥 엑셀 다운로드</button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {activeTab === 'view' && (
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-xl font-bold text-gray-800 mb-6">조회</h2>
@@ -4693,6 +4928,15 @@ function MFGProductionApp() {
                     className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
                   >이번 달</button>
                 </div>
+              </div>
+            )}
+            
+            {/* 출력 버튼 - 생산일지 */}
+            {viewSubTab === 'production' && (
+              <div className="mb-3 flex justify-end">
+                <button type="button" onClick={() => setExportModalType('production')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium flex items-center gap-2">
+                  📤 엑셀 출력
+                </button>
               </div>
             )}
             
@@ -4862,6 +5106,15 @@ function MFGProductionApp() {
             })()}
             
             {/* 비가동 조회 */}
+            {/* 출력 버튼 - 비가동 */}
+            {viewSubTab === 'downtime' && (
+              <div className="mb-3 flex justify-end">
+                <button type="button" onClick={() => setExportModalType('downtime')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium flex items-center gap-2">
+                  📤 엑셀 출력
+                </button>
+              </div>
+            )}
+            
             {viewSubTab === 'downtime' && (() => {
               const allLogs = downtimeLogs.filter(d => {
                 const prod = getProductionLogById(d.productionLogId);
@@ -4970,6 +5223,15 @@ function MFGProductionApp() {
             })()}
             
             {/* 불량 조회 */}
+            {/* 출력 버튼 - 불량 */}
+            {viewSubTab === 'defect' && (
+              <div className="mb-3 flex justify-end">
+                <button type="button" onClick={() => setExportModalType('defect')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium flex items-center gap-2">
+                  📤 엑셀 출력
+                </button>
+              </div>
+            )}
+            
             {viewSubTab === 'defect' && (() => {
               const allLogs = defectLogs.filter(d => {
                 const prod = getProductionLogById(d.productionLogId);
@@ -5186,6 +5448,15 @@ function MFGProductionApp() {
             })()}
             
             {/* 재작업 조회 */}
+            {/* 출력 버튼 - 재작업 */}
+            {viewSubTab === 'rework' && (
+              <div className="mb-3 flex justify-end">
+                <button type="button" onClick={() => setExportModalType('rework')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium flex items-center gap-2">
+                  📤 엑셀 출력
+                </button>
+              </div>
+            )}
+            
             {viewSubTab === 'rework' && (() => {
               const allLogs = reworkLogs.filter(d => {
                 const prod = getProductionLogById(d.productionLogId);
@@ -10243,6 +10514,17 @@ function MFGProductionApp() {
               >
                 📋 인원편성
               </button>
+              <button
+                type="button"
+                onClick={() => setPersonnelSubTab('otvac')}
+                className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  personnelSubTab === 'otvac'
+                    ? 'bg-amber-100 text-amber-700 border-2 border-amber-300'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                📅 OT/휴가
+              </button>
             </div>
             
             {/* 인원관리 서브탭 */}
@@ -11303,6 +11585,268 @@ function MFGProductionApp() {
                     </span>
                   </div>
                 </>
+              );
+            })()}
+{/* OT/휴가 서브탭 */}
+            {personnelSubTab === 'otvac' && (() => {
+              const VACATION_TYPES = ['연차', '반차', '병가', '무급', '대체', '경조'];
+              const tcpEmployees = employees.filter(e => (e.section === 'TCP' || (e.section || '').toUpperCase() === 'TCP') && !e.leaveDate);
+              
+              // 디버그용 섹션별 카운트 (미리 계산)
+              const sectionCounts = {};
+              employees.forEach(e => {
+                const s = e.section || '(없음)';
+                sectionCounts[s] = (sectionCounts[s] || 0) + 1;
+              });
+              const sectionLabel = Object.keys(sectionCounts).map(k => k + '=' + sectionCounts[k] + '명').join(' | ');
+              
+              const updateOtVac = (date, name, key, value) => {
+                setOtVacationData(prev => {
+                  const next = { ...prev };
+                  if (!next[date]) next[date] = {};
+                  if (!next[date][name]) next[date][name] = { type: '', shift: '', vacation: '', ot: 0 };
+                  next[date][name] = { ...next[date][name], [key]: value };
+                  
+                  // 상태 변경 시 자동 정리
+                  if (key === 'type') {
+                    if (value === 'work' || value === 'special') {
+                      next[date][name].vacation = '';
+                      if (!next[date][name].shift) next[date][name].shift = '주간';
+                    } else if (value === 'vacation') {
+                      next[date][name].shift = '';
+                      if (!next[date][name].vacation) next[date][name].vacation = '연차';
+                    } else {
+                      next[date][name].shift = '';
+                      next[date][name].vacation = '';
+                    }
+                  }
+                  
+                  // 빈 데이터 정리
+                  const d = next[date][name];
+                  const noOt = (!d.ot || d.ot === 0) && (!d.ot15 || d.ot15 === 0) && (!d.ot20 || d.ot20 === 0);
+                  if (!d.type && !d.shift && !d.vacation && noOt) {
+                    delete next[date][name];
+                  }
+                  if (next[date] && Object.keys(next[date]).length === 0) delete next[date];
+                  
+                  localStorage.setItem('tcpOtVacationData', JSON.stringify(next));
+                  return next;
+                });
+              };
+              
+              const moveDate = (delta) => {
+                const d = new Date(otvacDate);
+                d.setDate(d.getDate() + delta);
+                setOtvacDate(d.toISOString().split('T')[0]);
+              };
+              
+              const copyFromPrevDay = () => {
+                const prev = new Date(otvacDate);
+                prev.setDate(prev.getDate() - 1);
+                const prevDateStr = prev.toISOString().split('T')[0];
+                const prevData = otVacationData[prevDateStr];
+                if (!prevData || Object.keys(prevData).length === 0) {
+                  alert('전일(' + prevDateStr + ') 데이터가 없습니다.');
+                  return;
+                }
+                if (!confirm(prevDateStr + ' 데이터를 ' + otvacDate + '로 복사합니다.\n현재 일자 데이터는 덮어쓰여집니다. 계속할까요?')) return;
+                setOtVacationData(p => {
+                  const next = { ...p };
+                  next[otvacDate] = JSON.parse(JSON.stringify(prevData));
+                  localStorage.setItem('tcpOtVacationData', JSON.stringify(next));
+                  return next;
+                });
+              };
+              
+              return (
+                <div>
+{/* View 토글 */}
+                  <div className="flex gap-2 mb-6">
+                    <button onClick={() => setOtvacView('daily')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${otvacView === 'daily' ? 'bg-amber-100 text-amber-700 border-2 border-amber-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>📅 일자별 입력</button>
+                    <button onClick={() => setOtvacView('monthly')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${otvacView === 'monthly' ? 'bg-amber-100 text-amber-700 border-2 border-amber-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>📊 월별 조회</button>
+                  </div>
+                  
+                  {otvacView === 'daily' && (
+                    <div>
+                      <div className="flex items-center gap-3 mb-4 flex-wrap">
+                        <button onClick={() => moveDate(-1)} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm">◀ 이전일</button>
+                        <input type="date" value={otvacDate} onChange={(e) => setOtvacDate(e.target.value)} className="px-3 py-2 border rounded text-sm" />
+                        <button onClick={() => moveDate(1)} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm">다음일 ▶</button>
+                        <span className="text-sm text-gray-500 ml-2">{new Date(otvacDate).toLocaleDateString('ko-KR', { weekday: 'long' })}</span>
+                        <button onClick={copyFromPrevDay} className="px-3 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded text-sm font-medium">📋 전일 복사</button>
+                        <span className="text-xs text-gray-400 ml-auto">자동 저장됩니다</span>
+                      </div>
+                      
+                      <div className="overflow-x-auto bg-white rounded-lg border">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th className="px-3 py-2 border text-left w-28">이름</th>
+                              <th className="px-3 py-2 border w-24">상태</th>
+                              <th className="px-3 py-2 border w-24">휴가 유형</th>
+                              <th className="px-3 py-2 border w-20">주야</th>
+                              <th className="px-3 py-2 border w-24">OT (1.5배)</th>
+                              <th className="px-3 py-2 border w-24">OT (2배)</th>
+                              <th className="px-3 py-2 border w-14">초기화</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tcpEmployees.length === 0 && (
+                              <tr><td colSpan="7" className="px-3 py-4 text-center text-gray-400">등록된 TCP 인원이 없습니다.</td></tr>
+                            )}
+                            {tcpEmployees.map(emp => {
+                              const data = otVacationData[otvacDate]?.[emp.name] || { type: 'work', shift: '주간', vacation: '', ot15: '', ot20: '' };
+                              const rowBg = data.type === 'vacation' ? 'bg-red-50' : (data.type === 'special' ? 'bg-purple-50' : (data.type === 'work' ? '' : 'bg-gray-50'));
+                              return (
+                                <tr key={emp.id} className={`${rowBg} hover:bg-amber-50`}>
+                                  <td className="px-3 py-2 border font-medium">{emp.name}{emp.role === '조장' && <span className="ml-1 text-xs text-indigo-600">[조장]</span>}</td>
+                                  <td className="px-3 py-2 border">
+                                    <select value={data.type || ''} onChange={(e) => updateOtVac(otvacDate, emp.name, 'type', e.target.value)} className="px-2 py-1 border rounded text-sm w-full">
+                                      <option value="">-</option>
+                                      <option value="work">근무</option>
+                                      <option value="special">특근</option>
+                                      <option value="vacation">휴가</option>
+                                    </select>
+                                  </td>
+                                  <td className="px-3 py-2 border">
+                                    <select disabled={data.type !== 'vacation'} value={data.vacation || ''} onChange={(e) => updateOtVac(otvacDate, emp.name, 'vacation', e.target.value)} className="px-2 py-1 border rounded text-sm w-full disabled:bg-gray-100 disabled:text-gray-400">
+                                      <option value="">-</option>
+                                      {VACATION_TYPES.map(v => <option key={v} value={v}>{v}</option>)}
+                                    </select>
+                                  </td>
+                                  <td className="px-3 py-2 border">
+                                    <select disabled={data.type !== 'work' && data.type !== 'special'} value={data.shift || ''} onChange={(e) => updateOtVac(otvacDate, emp.name, 'shift', e.target.value)} className="px-2 py-1 border rounded text-sm w-full disabled:bg-gray-100 disabled:text-gray-400">
+                                      <option value="">-</option>
+                                      <option value="주간">주간</option>
+                                      <option value="야간">야간</option>
+                                    </select>
+                                  </td>
+                                  <td className="px-3 py-2 border">
+                                    <input type="text" inputMode="decimal" value={(!data.ot15 && !data.ot) ? '' : (data.ot15 || data.ot)} onFocus={(e) => e.target.select()} onChange={(e) => { const v = e.target.value; if (v === '' || /^\d{0,2}(\.\d{0,2})?$/.test(v)) updateOtVac(otvacDate, emp.name, 'ot15', v); }} className="px-2 py-1 border rounded text-sm w-full text-right" />
+                                  </td>
+                                  <td className="px-3 py-2 border">
+                                    <input type="text" inputMode="decimal" value={!data.ot20 ? '' : data.ot20} onFocus={(e) => e.target.select()} onChange={(e) => { const v = e.target.value; if (v === '' || /^\d{0,2}(\.\d{0,2})?$/.test(v)) updateOtVac(otvacDate, emp.name, 'ot20', v); }} className="px-2 py-1 border rounded text-sm w-full text-right" />
+                                  </td>
+                                  <td className="px-3 py-2 border text-center">
+                                    <button onClick={() => updateOtVac(otvacDate, emp.name, 'type', '')} className="text-xs text-red-500 hover:text-red-700">✕</button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {otvacView === 'monthly' && (
+                    <div>
+                      <div className="flex items-center gap-3 mb-4 flex-wrap">
+                        <select value={otvacYear} onChange={(e) => setOtvacYear(Number(e.target.value))} className="px-3 py-2 border rounded text-sm">
+                          {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}년</option>)}
+                        </select>
+                        <select value={otvacMonth} onChange={(e) => setOtvacMonth(Number(e.target.value))} className="px-3 py-2 border rounded text-sm">
+                          {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => <option key={m} value={m}>{m}월</option>)}
+                        </select>
+                        <span className="text-xs text-gray-400 ml-auto">셀을 클릭하면 그 일자의 입력 화면으로 이동합니다</span>
+                      </div>
+                      
+                      <div className="bg-white rounded-lg border p-3 mb-2 text-xs text-gray-600">
+                        <span className="font-medium">범례:</span>
+                        <span className="ml-3 inline-block w-6 h-5 bg-yellow-100 text-yellow-800 text-center rounded mr-1 align-middle">주</span>주간
+                        <span className="ml-3 inline-block w-6 h-5 bg-indigo-100 text-indigo-800 text-center rounded mr-1 align-middle">야</span>야간
+                        <span className="ml-3 inline-block w-6 h-5 bg-red-100 text-red-800 text-center rounded mr-1 align-middle">연</span>연차
+                        <span className="ml-2 inline-block w-6 h-5 bg-red-100 text-red-800 text-center rounded mr-1 align-middle">반</span>반차
+                        <span className="ml-2 inline-block w-6 h-5 bg-red-100 text-red-800 text-center rounded mr-1 align-middle">병</span>병가
+                        <span className="ml-2 inline-block w-6 h-5 bg-red-100 text-red-800 text-center rounded mr-1 align-middle">무</span>무급
+                        <span className="ml-2 inline-block w-6 h-5 bg-red-100 text-red-800 text-center rounded mr-1 align-middle">대</span>대체
+                        <span className="ml-2 inline-block w-6 h-5 bg-red-100 text-red-800 text-center rounded mr-1 align-middle">경</span>경조
+                      </div>
+                      
+                      {(() => {
+                        const daysInMonth = new Date(otvacYear, otvacMonth, 0).getDate();
+                        const days = Array.from({length: daysInMonth}, (_, i) => i+1);
+                        const codeOf = (data) => {
+                          if (!data || !data.type) return '';
+                          if (data.type === 'work') return data.shift === '야간' ? '야' : '주';
+                          if (data.type === 'special') return data.shift === '야간' ? '특야' : '특주';
+                          if (data.type === 'vacation') {
+                            const map = { '연차':'연', '반차':'반', '병가':'병', '무급':'무', '대체':'대', '경조':'경' };
+                            return map[data.vacation] || '휴';
+                          }
+                          return '';
+                        };
+                        const colorOf = (data) => {
+                          if (!data || !data.type) return '';
+                          if (data.type === 'work') return data.shift === '야간' ? 'bg-indigo-100 text-indigo-800' : 'bg-yellow-100 text-yellow-800';
+                          if (data.type === 'special') return data.shift === '야간' ? 'bg-purple-100 text-purple-800' : 'bg-pink-100 text-pink-800';
+                          return 'bg-red-100 text-red-800';
+                        };
+                        
+                        return (
+                          <div className="overflow-x-auto bg-white rounded-lg border">
+                            <table className="text-xs">
+                              <thead>
+                                <tr className="bg-gray-100">
+                                  <th className="px-2 py-1 border sticky left-0 bg-gray-100 z-10 min-w-[100px]">이름</th>
+                                  {days.map(d => {
+                                    const dow = new Date(otvacYear, otvacMonth-1, d).getDay();
+                                    const color = dow === 0 ? 'text-red-600 bg-red-50' : dow === 6 ? 'text-blue-600 bg-blue-50' : '';
+                                    return <th key={d} className={`px-1 py-1 border w-9 ${color}`}>{d}</th>;
+                                  })}
+                                  <th className="px-2 py-1 border bg-amber-50 min-w-[55px]">OT 1.5배</th>
+                                  <th className="px-2 py-1 border bg-orange-50 min-w-[55px]">OT 2배</th>
+                                  <th className="px-2 py-1 border bg-rose-50 min-w-[55px]">휴가 합</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {tcpEmployees.length === 0 && (
+                                  <tr><td colSpan={days.length + 4} className="px-3 py-4 text-center text-gray-400">등록된 TCP 인원이 없습니다.</td></tr>
+                                )}
+                                {tcpEmployees.map(emp => {
+                                  let totalOt15 = 0, totalOt20 = 0, vacCount = 0;
+                                  const cells = days.map(d => {
+                                    const dateStr = `${otvacYear}-${String(otvacMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                                    const data = otVacationData[dateStr]?.[emp.name];
+                                    if (data) {
+                                      if (data.ot15) totalOt15 += parseFloat(data.ot15) || 0;
+                                      else if (data.ot) totalOt15 += parseFloat(data.ot) || 0;
+                                      if (data.ot20) totalOt20 += parseFloat(data.ot20) || 0;
+                                      if (data.type === 'vacation') {
+                                        vacCount += (data.vacation === '반차') ? 0.5 : 1;
+                                      }
+                                    }
+                                    return { dateStr, data };
+                                  });
+                                  return (
+                                    <tr key={emp.id} className="hover:bg-amber-50/30">
+                                      <td className="px-2 py-1 border sticky left-0 bg-white z-10 font-medium">{emp.name}</td>
+                                      {cells.map(({dateStr, data}) => {
+                                        const code = codeOf(data);
+                                        return (
+                                          <td key={dateStr} 
+                                              onClick={() => { setOtvacDate(dateStr); setOtvacView('daily'); }}
+                                              className={`px-1 py-1 border text-center cursor-pointer ${colorOf(data)} hover:ring-2 hover:ring-amber-400 transition`}
+                                              title={data ? `${data.type === 'work' || data.type === 'special' ? data.shift : (data.vacation || '')} ${(parseFloat(data.ot15)||0) > 0 ? '/ 1.5배 ' + data.ot15 + 'h' : ''}${(parseFloat(data.ot20)||0) > 0 ? ' / 2.0배 ' + data.ot20 + 'h' : ''}` : ''}>
+                                            <div>{code}</div>
+                                            {((parseFloat(data?.ot15)||parseFloat(data?.ot)||0) + (parseFloat(data?.ot20)||0)) > 0 && <div className="text-[9px] text-gray-600 leading-tight">+{((parseFloat(data?.ot15)||parseFloat(data?.ot)||0) + (parseFloat(data?.ot20)||0)).toFixed(1)}</div>}
+                                          </td>
+                                        );
+                                      })}
+                                      <td className="px-2 py-1 border text-right font-semibold text-amber-700 bg-amber-50">{totalOt15.toFixed(1)}h</td>
+                                      <td className="px-2 py-1 border text-right font-semibold text-orange-700 bg-orange-50">{totalOt20.toFixed(1)}h</td>
+                                      <td className="px-2 py-1 border text-right font-semibold text-rose-700 bg-rose-50">{vacCount}일</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
               );
             })()}
             
@@ -13512,6 +14056,7 @@ function MFGProductionApp() {
                 )}
               </>
             )}
+            
           </div>
         )}
         
