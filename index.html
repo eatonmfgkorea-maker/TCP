@@ -2002,10 +2002,11 @@ function MFGProductionApp() {
     const offset = isNight ? 12*60 : 0;
     
     const base = [
-      { key: '조회',       name: '조회',           startMin: 8*60+30,  endMin: 8*60+40,  dur: 10, saveType: '조회' },
+      { key: '오전체조',   name: '체조',           startMin: 8*60+30,  endMin: 8*60+35,  dur: 5,  saveType: '체조' },
+      { key: '조회',       name: '조회',           startMin: 8*60+35,  endMin: 8*60+40,  dur: 5,  saveType: '조회' },
       { key: '오전쉼',     name: '오전 쉬는시간',  startMin: 10*60+30, endMin: 10*60+40, dur: 10, saveType: '휴식시간' },
       { key: '점심',       name: '점심시간',       startMin: 12*60+30, endMin: 13*60+30, dur: 60, saveType: '휴식시간' },
-      { key: '체조',       name: '체조',           startMin: 13*60+30, endMin: 13*60+35, dur: 5,  saveType: '체조' },
+      { key: '오후체조',   name: '체조',           startMin: 13*60+30, endMin: 13*60+35, dur: 5,  saveType: '체조' },
       { key: '오후쉼',     name: '오후 쉬는시간',  startMin: 15*60+20, endMin: 15*60+30, dur: 10, saveType: '휴식시간' },
       { key: '저녁',       name: '저녁시간',       startMin: 17*60+30, endMin: 18*60,    dur: 30, saveType: '저녁시간' },
     ];
@@ -2097,7 +2098,8 @@ function MFGProductionApp() {
   const addPlannedDowntimes = (log) => {
     // TCP 기준 계획비가동 (5S+는 종료 5분 전)
     const plannedDowntimeSchedule = [
-      { name: '조회', start: '08:30', end: '08:40' },
+      { name: '체조', start: '08:30', end: '08:35' },
+      { name: '조회', start: '08:35', end: '08:40' },
       { name: '쉬는시간', start: '10:30', end: '10:40' },
       { name: '점심시간', start: '12:30', end: '13:30' },
       { name: '체조', start: '13:30', end: '13:35' },
