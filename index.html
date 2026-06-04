@@ -785,6 +785,7 @@ function MFGProductionApp() {
     
     (async () => {
       try {
+        // ★ Drive(구글) 최우선 — 앱 열 때 무조건 Drive 최신본 로드
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbxLFrxbAaBt1bBa3SUdDY9wY48tvt85mEDaj3tiKhyw_R7oJCC9GbOWLfWbdSohnQtB/exec';
         const PREFIX = 'tcp-backup-';
         
@@ -806,6 +807,7 @@ function MFGProductionApp() {
         if (!loadJson || !loadJson.ok || !loadJson.data) return;
         
         const data = loadJson.data;
+        console.log('Drive 최신본 로드 적용');
         const defaultDefectCodes = [
           'A(치수)', 'B(갈라짐)', 'C(파손)', 'D(이물질)', 'DF(Door힘)',
           'E(Burr)', 'ES(ESTest)', 'F(미성형)', 'G(형상)', 'H(긁힘)',
@@ -883,7 +885,7 @@ function MFGProductionApp() {
         otVacationData
       };
       
-      const success = await saveToIndexedDB('mfgAppData', dataToSave);
+      const success = await saveToIndexedDB('mfgAppData', { ...dataToSave, savedAt: Date.now() });
       if (success) {
         setLastSaved(new Date().toLocaleTimeString());
         const size = await getStorageSize();
@@ -893,6 +895,23 @@ function MFGProductionApp() {
     
     // 디바운스: 500ms 후 저장
     const timer = setTimeout(saveData, 500);
+    return () => clearTimeout(timer);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, isLoading]);
+  
+  // ★ Drive 자동 백업 (변경 시 자동 — 수동 저장 안 해도 Drive에 백업됨)
+  const driveAutoBackupRef = React.useRef(false);
+  useEffect(() => {
+    if (isLoading) return;
+    if (!driveAutoBackupRef.current) { driveAutoBackupRef.current = true; return; } // 초기 마운트 스킵
+    const timer = setTimeout(async () => {
+      try {
+        const dataToSave = { productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, savedAt: Date.now() };
+        const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxLFrxbAaBt1bBa3SUdDY9wY48tvt85mEDaj3tiKhyw_R7oJCC9GbOWLfWbdSohnQtB/exec';
+        await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ filename: `tcp-backup-${ts}.json`, data: dataToSave }) });
+        console.log('Drive 자동 백업 완료:', ts);
+      } catch (e) { console.warn('Drive 자동 백업 실패:', e); }
+    }, 30000); // 30초 디바운스
     return () => clearTimeout(timer);
   }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, isLoading]);
   
@@ -3171,6 +3190,7 @@ function MFGProductionApp() {
                     slotStatus,
                     skillData,
                     absenceReasons,
+                    lotData,
                     otVacationData,
                     savedAt: now.toISOString()
                   };
@@ -3185,7 +3205,7 @@ function MFGProductionApp() {
                     const res = await fetch(GAS_URL, {
                       method: 'POST',
                       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                      body: JSON.stringify({ filename, data: dataToSave })
+                      body: JSON.stringify({ filename, data: { ...dataToSave, savedAt: Date.now() } })
                     });
                     const j = await res.json();
                     driveOk = !!j.ok;
