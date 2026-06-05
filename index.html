@@ -1855,6 +1855,10 @@ function MFGProductionApp() {
   // 중복 확인 후 저장 진행
   const [pendingLog, setPendingLog] = useState(null);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  // 비가동 입력 확인 모달
+  const [showDowntimeConfirm, setShowDowntimeConfirm] = useState(false);
+  const [pendingDowntime, setPendingDowntime] = useState(null);
+  const [downtimeConfirmList, setDowntimeConfirmList] = useState([]);
   const [duplicateWorkers, setDuplicateWorkers] = useState([]);
   
   const handleSubmit = () => {
@@ -1873,6 +1877,34 @@ function MFGProductionApp() {
     }
     if (!timePattern.test(formData.endTime)) {
       setFormError('종료시간 형식이 올바르지 않습니다.\n올바른 형식: HH:MM (예: 17:30, 05:30)');
+      return;
+    }
+    
+    // ★ 시간 역전 검증 (주간: 시작<종료, 야간: 종료<시작 허용, 같으면 차단)
+    const __toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+    const __sMin = __toMin(formData.startTime), __eMin = __toMin(formData.endTime);
+    if (__sMin === __eMin) {
+      setFormError('시작시간과 종료시간이 같습니다. 다시 확인해주세요.');
+      return;
+    }
+    if (formData.shift === '주간' && __eMin < __sMin) {
+      setFormError('주간 근무는 종료시간이 시작시간보다 늦어야 합니다.\n(야간 근무라면 주야 구분을 확인하세요)');
+      return;
+    }
+    
+    // ★ 시간 중복 검증 (같은 날짜+라인+품명+주야에서 시간대 겹침 차단 / 타임 분할 입력은 허용)
+    const __overlap = productionLogs.find(log =>
+      log.id !== editingLogId &&
+      log.section === activeSection &&
+      log.productionDate === formData.productionDate &&
+      log.lineName === formData.lineName &&
+      log.item === formData.item &&
+      log.shift === formData.shift &&
+      log.startTime && log.endTime &&
+      isTimeOverlap(formData.startTime, formData.endTime, log.startTime, log.endTime)
+    );
+    if (__overlap) {
+      setFormError(`같은 조건(${formData.lineName} / ${formData.item} / ${formData.shift})에 시간이 겹치는 입력이 있습니다.\n기존: ${__overlap.startTime}~${__overlap.endTime}\n신규: ${formData.startTime}~${formData.endTime}\n\n겹치지 않게 시간대를 나눠 입력하세요.`);
       return;
     }
     
@@ -2704,6 +2736,7 @@ function MFGProductionApp() {
       ));
       setEditingDowntimeId(null);
     } else {
+      // 신규 등록 → 확인 모달 표시
       const newDowntime = {
         ...downtimeForm,
         downtimeCategory: selectedType?.category || '비가동',
@@ -2711,8 +2744,21 @@ function MFGProductionApp() {
         id: Date.now(),
         createdAt: new Date().toLocaleString('ko-KR')
       };
-      setDowntimeLogs(prev => [newDowntime, ...prev]);
+      const existingDts = downtimeLogs.filter(d => d.productionLogId === selectedLogId);
+      setPendingDowntime(newDowntime);
+      setDowntimeConfirmList([...existingDts, newDowntime]);
+      setShowDowntimeConfirm(true);
+      return;
     }
+    setDowntimeForm({ downtimeType: '', startTime: '', endTime: '', content: '', isEtc: false });
+  };
+  
+  // 비가동 확인 모달 → 확인 시 실제 저장
+  const confirmAddDowntime = () => {
+    if (pendingDowntime) setDowntimeLogs(prev => [pendingDowntime, ...prev]);
+    setShowDowntimeConfirm(false);
+    setPendingDowntime(null);
+    setDowntimeConfirmList([]);
     setDowntimeForm({ downtimeType: '', startTime: '', endTime: '', content: '', isEtc: false });
   };
   
@@ -2806,6 +2852,21 @@ function MFGProductionApp() {
       setFormError('모든 필드를 입력해주세요.');
       return;
     }
+    
+    // ★ 불량 수량 ≤ 생산수량 검증 (같은 불량종류+Part 단위로 합산 / 종류·Part 다르면 별개)
+    const __goodQty = Number(selectedLog?.goodQuantity) || 0;
+    const __newQty = Number(defectForm.quantity) || 0;
+    const __partKey = (defectForm.selectedBoms || []).slice().sort().join('|');
+    const __existSum = defectLogs
+      .filter(d => d.id !== editingDefectId && d.productionLogId === selectedLogId
+        && d.defectType === defectForm.defectType
+        && (d.selectedBoms || []).slice().sort().join('|') === __partKey)
+      .reduce((s, d) => s + (Number(d.quantity) || 0), 0);
+    if (__goodQty > 0 && __existSum + __newQty > __goodQty) {
+      setFormError(`불량 수량이 생산수량을 초과합니다.\n생산수량: ${__goodQty}개\n같은 종류+Part 합계: 기존 ${__existSum} + 신규 ${__newQty} = ${__existSum + __newQty}개\n\n불량종류나 Part(BOM)가 다르면 별도로 입력 가능합니다.`);
+      return;
+    }
+    
     if (editingDefectId) {
       setDefectLogs(prev => prev.map(d => 
         d.id === editingDefectId 
@@ -2872,6 +2933,19 @@ function MFGProductionApp() {
       setFormError('모든 필드를 입력해주세요.');
       return;
     }
+    
+    // ★ 재작업 수량 ≤ 생산수량 검증 (같은 재작업종류 단위로 합산 / 종류 다르면 별개)
+    const __goodQtyR = Number(selectedLog?.goodQuantity) || 0;
+    const __newQtyR = Number(reworkForm.quantity) || 0;
+    const __existSumR = reworkLogs
+      .filter(r => r.id !== editingReworkId && r.productionLogId === selectedLogId
+        && r.reworkType === reworkForm.reworkType)
+      .reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+    if (__goodQtyR > 0 && __existSumR + __newQtyR > __goodQtyR) {
+      setFormError(`재작업 수량이 생산수량을 초과합니다.\n생산수량: ${__goodQtyR}개\n같은 종류 합계: 기존 ${__existSumR} + 신규 ${__newQtyR} = ${__existSumR + __newQtyR}개\n\n재작업종류가 다르면 별도로 입력 가능합니다.`);
+      return;
+    }
+    
     if (editingReworkId) {
       setReworkLogs(prev => prev.map(r => 
         r.id === editingReworkId 
@@ -4677,6 +4751,33 @@ function MFGProductionApp() {
                 >
                   그래도 저장
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* 비가동 입력 확인 모달 */}
+        {showDowntimeConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setShowDowntimeConfirm(false); setPendingDowntime(null); setDowntimeConfirmList([]); }}>
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-xl font-bold text-gray-800 mb-4">비가동 입력 확인</h3>
+              <div className="space-y-1.5 mb-5 max-h-80 overflow-y-auto bg-gray-50 rounded-lg p-4">
+                {downtimeConfirmList.map((d, i) => {
+                  const isNew = pendingDowntime && d.id === pendingDowntime.id;
+                  const calcMin = (s, e) => { if (!s || !e) return 0; const toM = t => { const [h,m] = t.split(':').map(Number); return h*60+m; }; let sm = toM(s), em = toM(e); if (em < sm) em += 1440; return em - sm; };
+                  const mins = d.isEtc ? 0 : calcMin(d.startTime, d.endTime);
+                  return (
+                    <div key={i} className={`text-lg ${isNew ? 'font-bold text-violet-700' : 'text-gray-600'}`}>
+                      {d.downtimeType}{d.content ? ' ' + d.content : ''} {mins > 0 ? mins + '분' : '(시간미입력)'}
+                      {isNew && <span className="text-sm text-violet-500 ml-2">← 신규</span>}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="text-lg font-medium text-gray-800 mb-5">입력하시겠습니까?</div>
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={() => { setShowDowntimeConfirm(false); setPendingDowntime(null); setDowntimeConfirmList([]); }} className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium">취소</button>
+                <button type="button" onClick={confirmAddDowntime} className="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-bold">확인</button>
               </div>
             </div>
           </div>
