@@ -618,6 +618,9 @@ function MFGProductionApp() {
   
   // Lot 데이터: { productionLogId: { bomName: [lot1, lot2, lot3, lot4] } }
   const [lotData, setLotData] = useState({});
+
+  // Lot 입력에서 숨긴 BOM: { item명: [bom명, ...] } — 숨기면 그 아이템에서 다음에도 안 보임 (복원 가능)
+  const [lotHiddenBoms, setLotHiddenBoms] = useState({});
   
   // Lot 편집 모드: 확장된 생산일지 ID
   const [expandedLotLogId, setExpandedLotLogId] = useState(null);
@@ -680,6 +683,7 @@ function MFGProductionApp() {
       skillData,
       absenceReasons,
       lotData,
+      lotHiddenBoms,
       otVacationData
     };
     
@@ -763,6 +767,7 @@ function MFGProductionApp() {
           setSkillData(savedData.skillData || { TCP: {}, FE: {} });
           setAbsenceReasons(savedData.absenceReasons || {});
           setLotData(savedData.lotData || {});
+          setLotHiddenBoms(savedData.lotHiddenBoms || {});
           setOtVacationData(savedData.otVacationData || {});
           
           console.log('✅ 데이터 로드 완료');
@@ -854,6 +859,7 @@ function MFGProductionApp() {
         setSkillData(data.skillData || { TCP: {}, FE: {} });
         setAbsenceReasons(data.absenceReasons || {});
         setLotData(data.lotData || {});
+        setLotHiddenBoms(data.lotHiddenBoms || {});
         setOtVacationData(data.otVacationData || {});
         
         setFormError('✅ 자동 적용');
@@ -3400,6 +3406,7 @@ function MFGProductionApp() {
                         setSkillData(data.skillData || { TCP: {}, FE: {} });
                         setAbsenceReasons(data.absenceReasons || {});
                         setLotData(data.lotData || {});
+                        setLotHiddenBoms(data.lotHiddenBoms || {});
                         
                         var savedInfo = data.savedAt ? '\n저장 시간: ' + new Date(data.savedAt).toLocaleString() : '';
                         setFormError('✅ 데이터를 불러왔습니다!' + savedInfo);
@@ -8389,7 +8396,24 @@ function MFGProductionApp() {
             const partNoData = itemData.partNos.find(pn => pn.partNo === log.partNo);
             return partNoData?.bom || [];
           };
-          
+
+          // BOM 숨기기/복원 (item별로 기억 — 숨기면 그 아이템에서 다음에도 안 보임)
+          const hideLotBom = (item, bomName) => {
+            setLotHiddenBoms(prev => {
+              const arr = prev[item] || [];
+              if (arr.includes(bomName)) return prev;
+              return { ...prev, [item]: [...arr, bomName] };
+            });
+          };
+          const unhideLotBom = (item, bomName) => {
+            setLotHiddenBoms(prev => {
+              const arr = (prev[item] || []).filter(n => n !== bomName);
+              const next = { ...prev };
+              if (arr.length) next[item] = arr; else delete next[item];
+              return next;
+            });
+          };
+
           // Lot 데이터 업데이트
           const updateLotData = (logId, bomName, lotIndex, value) => {
             setLotData(prev => {
@@ -8506,7 +8530,10 @@ function MFGProductionApp() {
                       </tr>
                     ) : (
                       filteredLotLogs.map((log, idx) => {
-                        const bomList = getBomForLog(log);
+                        const bomListAll = getBomForLog(log);
+                        const hiddenForItem = lotHiddenBoms[log.item] || [];
+                        const bomList = bomListAll.filter(b => !hiddenForItem.includes(b.name));
+                        const hiddenBomList = bomListAll.filter(b => hiddenForItem.includes(b.name));
                         const isExpanded = expandedLotLogId === log.id;
                         const hasLotData = lotData[log.id] && Object.keys(lotData[log.id]).some(k => lotData[log.id][k].some(v => v));
                         
@@ -8530,7 +8557,7 @@ function MFGProductionApp() {
                                 {log.goodQuantity?.toLocaleString()}
                               </td>
                               <td className="px-3 py-3 text-center border-b">
-                                {bomList.length > 0 ? (
+                                {bomListAll.length > 0 ? (
                                   <button
                                     type="button"
                                     onClick={() => setExpandedLotLogId(isExpanded ? null : log.id)}
@@ -8551,7 +8578,7 @@ function MFGProductionApp() {
                               </td>
                             </tr>
                             {/* BOM Lot 입력 영역 */}
-                            {isExpanded && bomList.length > 0 && (
+                            {isExpanded && bomListAll.length > 0 && (
                               <tr>
                                 <td colSpan={9} className="px-0 py-0 border-b bg-violet-50">
                                   <div className="p-4">
@@ -8578,9 +8605,36 @@ function MFGProductionApp() {
                                               />
                                             ))}
                                           </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => hideLotBom(log.item, bom.name)}
+                                            className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500 flex items-center justify-center text-lg font-bold transition-colors"
+                                            title="이 BOM 숨기기 (다음에도 숨겨집니다)"
+                                          >
+                                            −
+                                          </button>
                                         </div>
                                       ))}
                                     </div>
+                                    {hiddenBomList.length > 0 && (
+                                      <div className="mt-3 pt-3 border-t border-violet-200">
+                                        <div className="text-xs text-gray-500 mb-2">🙈 숨긴 BOM {hiddenBomList.length}개 — 클릭하면 다시 표시됩니다</div>
+                                        <div className="flex flex-wrap gap-2">
+                                          {hiddenBomList.map((bom, i) => (
+                                            <button
+                                              key={i}
+                                              type="button"
+                                              onClick={() => unhideLotBom(log.item, bom.name)}
+                                              className="px-2.5 py-1 text-xs bg-gray-100 text-gray-500 rounded-full hover:bg-violet-100 hover:text-violet-600 flex items-center gap-1 transition-colors"
+                                              title="다시 표시"
+                                            >
+                                              <span>{bom.name}</span>
+                                              <span className="text-violet-500 font-bold">↩</span>
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
