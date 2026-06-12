@@ -707,7 +707,7 @@ function MFGProductionApp() {
       percent: usagePercent,
       bytes
     };
-  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData]);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, lotHiddenBoms, otVacationData]);
   
   // IndexedDB에서 데이터 로드 (앱 시작 시)
   useEffect(() => {
@@ -888,6 +888,7 @@ function MFGProductionApp() {
         skillData,
         absenceReasons,
         lotData,
+        lotHiddenBoms,
         otVacationData
       };
       
@@ -902,7 +903,7 @@ function MFGProductionApp() {
     // 디바운스: 500ms 후 저장
     const timer = setTimeout(saveData, 500);
     return () => clearTimeout(timer);
-  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, isLoading]);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, lotHiddenBoms, otVacationData, isLoading]);
   
   // ★ Drive 자동 백업 (변경 시 자동 — 수동 저장 안 해도 Drive에 백업됨)
   const driveAutoBackupRef = React.useRef(false);
@@ -911,7 +912,7 @@ function MFGProductionApp() {
     if (!driveAutoBackupRef.current) { driveAutoBackupRef.current = true; return; } // 초기 마운트 스킵
     const timer = setTimeout(async () => {
       try {
-        const dataToSave = { productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, savedAt: Date.now() };
+        const dataToSave = { productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, lotHiddenBoms, otVacationData, savedAt: Date.now() };
         const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbxLFrxbAaBt1bBa3SUdDY9wY48tvt85mEDaj3tiKhyw_R7oJCC9GbOWLfWbdSohnQtB/exec';
         await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ filename: `tcp-backup-${ts}.json`, data: dataToSave }) });
@@ -919,7 +920,7 @@ function MFGProductionApp() {
       } catch (e) { console.warn('Drive 자동 백업 실패:', e); }
     }, 30000); // 30초 디바운스
     return () => clearTimeout(timer);
-  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, isLoading]);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, lotHiddenBoms, otVacationData, isLoading]);
   
   // 직원 추가
   const addEmployee = () => {
@@ -3271,6 +3272,7 @@ function MFGProductionApp() {
                     skillData,
                     absenceReasons,
                     lotData,
+                    lotHiddenBoms,
                     otVacationData,
                     savedAt: now.toISOString()
                   };
