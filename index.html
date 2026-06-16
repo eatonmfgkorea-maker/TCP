@@ -6,7 +6,7 @@
   <title>TCP 생산관리 시스템</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -707,7 +707,7 @@ function MFGProductionApp() {
       percent: usagePercent,
       bytes
     };
-  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, lotHiddenBoms, otVacationData]);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData]);
   
   // IndexedDB에서 데이터 로드 (앱 시작 시)
   useEffect(() => {
@@ -888,7 +888,6 @@ function MFGProductionApp() {
         skillData,
         absenceReasons,
         lotData,
-        lotHiddenBoms,
         otVacationData
       };
       
@@ -903,7 +902,7 @@ function MFGProductionApp() {
     // 디바운스: 500ms 후 저장
     const timer = setTimeout(saveData, 500);
     return () => clearTimeout(timer);
-  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, lotHiddenBoms, otVacationData, isLoading]);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, isLoading]);
   
   // ★ Drive 자동 백업 (변경 시 자동 — 수동 저장 안 해도 Drive에 백업됨)
   const driveAutoBackupRef = React.useRef(false);
@@ -912,7 +911,7 @@ function MFGProductionApp() {
     if (!driveAutoBackupRef.current) { driveAutoBackupRef.current = true; return; } // 초기 마운트 스킵
     const timer = setTimeout(async () => {
       try {
-        const dataToSave = { productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, lotHiddenBoms, otVacationData, savedAt: Date.now() };
+        const dataToSave = { productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, savedAt: Date.now() };
         const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbxLFrxbAaBt1bBa3SUdDY9wY48tvt85mEDaj3tiKhyw_R7oJCC9GbOWLfWbdSohnQtB/exec';
         await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ filename: `tcp-backup-${ts}.json`, data: dataToSave }) });
@@ -920,7 +919,7 @@ function MFGProductionApp() {
       } catch (e) { console.warn('Drive 자동 백업 실패:', e); }
     }, 30000); // 30초 디바운스
     return () => clearTimeout(timer);
-  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, lotHiddenBoms, otVacationData, isLoading]);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, isLoading]);
   
   // 직원 추가
   const addEmployee = () => {
@@ -3272,7 +3271,6 @@ function MFGProductionApp() {
                     skillData,
                     absenceReasons,
                     lotData,
-                    lotHiddenBoms,
                     otVacationData,
                     savedAt: now.toISOString()
                   };
@@ -5287,7 +5285,6 @@ function MFGProductionApp() {
                       <table className="w-full text-sm">
                         <thead className="bg-orange-50 sticky top-0" style={{zIndex: 20}}>
                           <tr>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">날짜</th>
                             <th className="px-3 py-2 text-left font-medium text-gray-600" style={{position: 'relative'}}>
                               <div className="flex items-center gap-1">
                                 <span>라인</span>
@@ -5366,12 +5363,11 @@ function MFGProductionApp() {
                         </thead>
                         <tbody>
                           {allLogs.length === 0 ? (
-                            <tr><td colSpan="9" className="px-4 py-8 text-center text-gray-400">해당 날짜에 {activeSection} 비가동 내역이 없습니다.</td></tr>
+                            <tr><td colSpan="8" className="px-4 py-8 text-center text-gray-400">해당 날짜에 {activeSection} 비가동 내역이 없습니다.</td></tr>
                           ) : allLogs.map(log => {
                             const prod = getProductionLogById(log.productionLogId);
                             return (
                               <tr key={log.id} className="border-t hover:bg-gray-50">
-                                <td className="px-3 py-2 whitespace-nowrap">{prod?.productionDate}</td>
                                 <td className="px-3 py-2">{prod?.lineName}</td>
                                 <td className="px-3 py-2">{prod?.partNo}</td>
                                 <td className="px-3 py-2">{prod?.item}</td>
@@ -5387,7 +5383,7 @@ function MFGProductionApp() {
                         {allLogs.length > 0 && (
                           <tfoot>
                             <tr className="border-t-2 bg-orange-50 border-orange-200">
-                              <td colSpan="9" className="px-3 py-2 font-medium text-orange-700">소계 ({allLogs.length}건)</td>
+                              <td colSpan="8" className="px-3 py-2 font-medium text-orange-700">소계 ({allLogs.length}건)</td>
                             </tr>
                           </tfoot>
                         )}
@@ -5438,7 +5434,6 @@ function MFGProductionApp() {
                       <table className="w-full text-sm">
                         <thead className="bg-red-50 sticky top-0" style={{zIndex: 20}}>
                           <tr>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">날짜</th>
                             <th className="px-3 py-2 text-left font-medium text-gray-600" style={{position: 'relative'}}>
                               <div className="flex items-center gap-1">
                                 <span>라인</span>
@@ -5516,12 +5511,11 @@ function MFGProductionApp() {
                         </thead>
                         <tbody>
                           {allLogs.length === 0 ? (
-                            <tr><td colSpan="9" className="px-4 py-8 text-center text-gray-400">해당 날짜에 {activeSection} 불량 내역이 없습니다.</td></tr>
+                            <tr><td colSpan="8" className="px-4 py-8 text-center text-gray-400">해당 날짜에 {activeSection} 불량 내역이 없습니다.</td></tr>
                           ) : allLogs.map(log => {
                             const prod = getProductionLogById(log.productionLogId);
                             return (
                               <tr key={log.id} className="border-t hover:bg-gray-50">
-                                <td className="px-3 py-2 whitespace-nowrap">{prod?.productionDate}</td>
                                 <td className="px-3 py-2">{prod?.lineName}</td>
                                 <td className="px-3 py-2">{prod?.partNo}</td>
                                 <td className="px-3 py-2">{prod?.item}</td>
@@ -5537,7 +5531,7 @@ function MFGProductionApp() {
                         {allLogs.length > 0 && (
                           <tfoot>
                             <tr className="border-t-2 bg-red-50 border-red-200">
-                              <td colSpan="8" className="px-3 py-2 font-medium text-red-700">소계 ({allLogs.length}건)</td>
+                              <td colSpan="7" className="px-3 py-2 font-medium text-red-700">소계 ({allLogs.length}건)</td>
                               <td className="px-3 py-2 text-right font-bold text-red-700">{allLogs.reduce((sum, log) => sum + Number(log.quantity), 0).toLocaleString()}개</td>
                             </tr>
                           </tfoot>
@@ -5576,7 +5570,6 @@ function MFGProductionApp() {
                       <table className="w-full text-sm">
                         <thead className="bg-purple-50 sticky top-0" style={{zIndex: 20}}>
                           <tr>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">날짜</th>
                             <th className="px-3 py-2 text-left font-medium text-gray-600" style={{position: 'relative'}}>
                               <div className="flex items-center gap-1">
                                 <span>라인</span>
@@ -5627,12 +5620,11 @@ function MFGProductionApp() {
                         </thead>
                         <tbody>
                           {allLogs.length === 0 ? (
-                            <tr><td colSpan="8" className="px-4 py-8 text-center text-gray-400">해당 날짜에 {activeSection} 공정불량 내역이 없습니다.</td></tr>
+                            <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-400">해당 날짜에 {activeSection} 공정불량 내역이 없습니다.</td></tr>
                           ) : allLogs.map(log => {
                             const prod = getProductionLogById(log.productionLogId);
                             return (
                               <tr key={log.id} className="border-t hover:bg-gray-50">
-                                <td className="px-3 py-2 whitespace-nowrap">{prod?.productionDate}</td>
                                 <td className="px-3 py-2">{prod?.lineName}</td>
                                 <td className="px-3 py-2">{prod?.partNo}</td>
                                 <td className="px-3 py-2">{log.station}</td>
@@ -5647,7 +5639,7 @@ function MFGProductionApp() {
                         {allLogs.length > 0 && (
                           <tfoot>
                             <tr className="border-t-2 bg-purple-50 border-purple-200">
-                              <td colSpan="7" className="px-3 py-2 font-medium text-purple-700">소계 ({allLogs.length}건)</td>
+                              <td colSpan="6" className="px-3 py-2 font-medium text-purple-700">소계 ({allLogs.length}건)</td>
                               <td className="px-3 py-2 text-right font-bold text-purple-700">{allLogs.reduce((sum, log) => sum + Number(log.quantity), 0).toLocaleString()}개</td>
                             </tr>
                           </tfoot>
@@ -5699,7 +5691,6 @@ function MFGProductionApp() {
                       <table className="w-full text-sm">
                         <thead className="bg-amber-50 sticky top-0" style={{zIndex: 20}}>
                           <tr>
-                            <th className="px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">날짜</th>
                             <th className="px-3 py-2 text-left font-medium text-gray-600" style={{position: 'relative'}}>
                               <div className="flex items-center gap-1">
                                 <span>라인</span>
@@ -5776,12 +5767,11 @@ function MFGProductionApp() {
                         </thead>
                         <tbody>
                           {allLogs.length === 0 ? (
-                            <tr><td colSpan="7" className="px-4 py-8 text-center text-gray-400">해당 날짜에 {activeSection} 재작업 내역이 없습니다.</td></tr>
+                            <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-400">해당 날짜에 {activeSection} 재작업 내역이 없습니다.</td></tr>
                           ) : allLogs.map(log => {
                             const prod = getProductionLogById(log.productionLogId);
                             return (
                               <tr key={log.id} className="border-t hover:bg-gray-50">
-                                <td className="px-3 py-2 whitespace-nowrap">{prod?.productionDate}</td>
                                 <td className="px-3 py-2">{prod?.lineName}</td>
                                 <td className="px-3 py-2">{prod?.partNo}</td>
                                 <td className="px-3 py-2">{prod?.item}</td>
@@ -5796,7 +5786,7 @@ function MFGProductionApp() {
                         {allLogs.length > 0 && (
                           <tfoot>
                             <tr className="border-t-2 bg-amber-50 border-amber-200">
-                              <td colSpan="6" className="px-3 py-2 font-medium text-amber-700">소계 ({allLogs.length}건)</td>
+                              <td colSpan="5" className="px-3 py-2 font-medium text-amber-700">소계 ({allLogs.length}건)</td>
                               <td className="px-3 py-2 text-right font-bold text-amber-700">{allLogs.reduce((sum, log) => sum + Number(log.quantity), 0).toLocaleString()}개</td>
                             </tr>
                           </tfoot>
