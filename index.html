@@ -1067,6 +1067,35 @@ function MFGProductionApp() {
       };
     });
   };
+
+  // 다른 아이템의 CT를 현재 선택 아이템으로 복사
+  const copyCtFromItem = (sourceItemName, mode) => {
+    if (ctSelectedItemIndex === null) { setFormError('먼저 대상 아이템을 선택하세요.'); return; }
+    if (!sourceItemName) return;
+    setSettings(prev => {
+      const newItems = [...prev[settingSection].items];
+      const src = newItems.find(it => it.item === sourceItemName);
+      if (!src || !Array.isArray(src.ct)) return prev;
+      const srcCt = src.ct.map(c => ({ ...c })); // 깊은 복사
+      const existing = newItems[ctSelectedItemIndex].ct || [];
+      let merged;
+      if (mode === 'replace') {
+        merged = srcCt;
+      } else {
+        // 병합: 같은 인원+시작일은 source 값으로 덮어쓰기, 나머지는 유지
+        const key = c => `${c.workers}|${c.startDate}`;
+        const map = {};
+        existing.forEach(c => { map[key(c)] = { ...c }; });
+        srcCt.forEach(c => { map[key(c)] = { ...c }; });
+        merged = Object.values(map);
+      }
+      newItems[ctSelectedItemIndex] = { ...newItems[ctSelectedItemIndex], ct: merged };
+      return { ...prev, [settingSection]: { ...prev[settingSection], items: newItems } };
+    });
+    setCtCopySource('');
+    setFormError('');
+  };
+  const [ctCopySource, setCtCopySource] = useState('');
   
   // 특정 날짜, 아이템, 인원에 해당하는 CT 조회
   const getCtForDate = (section, itemName, workers, date) => {
@@ -13576,6 +13605,42 @@ function MFGProductionApp() {
                             }`}
                           >
                             추가
+                          </button>
+                        </div>
+
+                        {/* 다른 아이템에서 CT 가져오기 */}
+                        <div className="flex gap-2 mb-4 items-center bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                          <span className="text-xs font-medium text-amber-800 whitespace-nowrap">📋 다른 아이템 CT 복사</span>
+                          <select
+                            value={ctCopySource}
+                            onChange={(e) => setCtCopySource(e.target.value)}
+                            className="flex-1 px-2 py-1.5 border border-amber-300 rounded-lg text-sm bg-white"
+                          >
+                            <option value="">— 가져올 아이템 선택 —</option>
+                            {settings[settingSection].items
+                              .map((it, i) => ({ it, i }))
+                              .filter(({ i }) => i !== ctSelectedItemIndex && settings[settingSection].items[i].ct && settings[settingSection].items[i].ct.length > 0)
+                              .map(({ it, i }) => (
+                                <option key={i} value={it.item}>{it.item} (CT {it.ct.length}건)</option>
+                              ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => copyCtFromItem(ctCopySource, 'merge')}
+                            disabled={!ctCopySource}
+                            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 text-white rounded-lg font-medium text-xs whitespace-nowrap"
+                            title="기존 CT는 두고, 같은 인원·시작일만 덮어쓰기"
+                          >
+                            병합 복사
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { if (confirm('현재 아이템의 기존 CT를 모두 지우고 선택한 아이템 CT로 덮어쓸까요?')) copyCtFromItem(ctCopySource, 'replace'); }}
+                            disabled={!ctCopySource}
+                            className="px-3 py-1.5 bg-white border border-amber-400 text-amber-700 hover:bg-amber-100 disabled:bg-gray-100 disabled:text-gray-400 rounded-lg font-medium text-xs whitespace-nowrap"
+                            title="기존 CT를 모두 지우고 통째로 교체"
+                          >
+                            전체 교체
                           </button>
                         </div>
                         
