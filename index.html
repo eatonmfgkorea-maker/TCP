@@ -3141,7 +3141,8 @@ function MFGProductionApp() {
             || '';
           return d.boms.map(b => ({
             ...base,
-            'BOM(자재)': b.name || '',
+            'BOM Part No': b.name || '',
+            'BOM 품명': b.productName || '',
             '불량 코드': (d.bomDefectCodes && d.bomDefectCodes[b.name]) || b.defectCode || commonCode || '',
             '수량': parseFloat(b.totalQty) || 0,
             '비고': d.note || ''
@@ -3149,7 +3150,8 @@ function MFGProductionApp() {
         }
         return [{
           ...base,
-          'BOM(자재)': d.bom || '',
+          'BOM Part No': d.bom || '',
+          'BOM 품명': '',
           '불량 코드': d.defectCode || '',
           '수량': parseFloat(d.quantity) || 0,
           '비고': d.note || ''
@@ -3189,7 +3191,8 @@ function MFGProductionApp() {
             || '';
           return r.boms.map(b => ({
             ...base,
-            'BOM(자재)': b.name || '',
+            'BOM Part No': b.name || '',
+            'BOM 품명': b.productName || '',
             '재작업 코드': (r.bomDefectCodes && r.bomDefectCodes[b.name]) || b.defectCode || commonCode || '',
             '수량': parseFloat(b.totalQty) || 0,
             '비고': r.note || ''
@@ -3197,7 +3200,8 @@ function MFGProductionApp() {
         }
         return [{
           ...base,
-          'BOM(자재)': r.bom || '',
+          'BOM Part No': r.bom || '',
+          'BOM 품명': '',
           '재작업 코드': r.defectCode || '',
           '수량': parseFloat(r.quantity) || 0,
           '비고': r.note || ''
