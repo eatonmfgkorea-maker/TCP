@@ -3134,10 +3134,15 @@ function MFGProductionApp() {
         };
         // BOM이 여러 개면 자재별로 행을 나눔 (BOM 하나당 한 행, 수량 = 해당 자재 수량)
         if (d.boms && d.boms.length > 0) {
+          // 같은 불량에서 분리된 행이므로 불량 코드는 동일하게 적용 (사용 가능한 코드 중 첫 번째)
+          const commonCode = d.defectCode
+            || (d.bomDefectCodes ? Object.values(d.bomDefectCodes).find(Boolean) : '')
+            || d.boms.map(b => b.defectCode).find(Boolean)
+            || '';
           return d.boms.map(b => ({
             ...base,
             'BOM(자재)': b.name || '',
-            '불량 코드': (d.bomDefectCodes && d.bomDefectCodes[b.name]) || b.defectCode || '',
+            '불량 코드': (d.bomDefectCodes && d.bomDefectCodes[b.name]) || b.defectCode || commonCode || '',
             '수량': parseFloat(b.totalQty) || 0,
             '비고': d.note || ''
           }));
@@ -3178,10 +3183,14 @@ function MFGProductionApp() {
           '소분류': r.reworkSubType || '',
         };
         if (r.boms && r.boms.length > 0) {
+          const commonCode = r.defectCode
+            || (r.bomDefectCodes ? Object.values(r.bomDefectCodes).find(Boolean) : '')
+            || r.boms.map(b => b.defectCode).find(Boolean)
+            || '';
           return r.boms.map(b => ({
             ...base,
             'BOM(자재)': b.name || '',
-            '재작업 코드': (r.bomDefectCodes && r.bomDefectCodes[b.name]) || b.defectCode || '',
+            '재작업 코드': (r.bomDefectCodes && r.bomDefectCodes[b.name]) || b.defectCode || commonCode || '',
             '수량': parseFloat(b.totalQty) || 0,
             '비고': r.note || ''
           }));
