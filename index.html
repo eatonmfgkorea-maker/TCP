@@ -3119,9 +3119,9 @@ function MFGProductionApp() {
         }
         return log.defectCode || '';
       };
-      data = defectLogs.filter(d => prodLogMap[d.productionLogId]).map(d => {
+      data = defectLogs.filter(d => prodLogMap[d.productionLogId]).flatMap(d => {
         const l = prodLogMap[d.productionLogId];
-        return {
+        const base = {
           '일자': l.productionDate,
           '라인': l.lineName,
           '주야': l.shift,
@@ -3131,11 +3131,24 @@ function MFGProductionApp() {
           '공정(Station)': d.station || '',
           '대분류': d.defectType || '',
           '소분류': d.defectSubType || '',
-          'BOM(자재)': formatBoms(d),
-          '불량 코드': formatCodes(d),
+        };
+        // BOM이 여러 개면 자재별로 행을 나눔 (BOM 하나당 한 행, 수량 = 해당 자재 수량)
+        if (d.boms && d.boms.length > 0) {
+          return d.boms.map(b => ({
+            ...base,
+            'BOM(자재)': b.name || '',
+            '불량 코드': (d.bomDefectCodes && d.bomDefectCodes[b.name]) || b.defectCode || '',
+            '수량': parseFloat(b.totalQty) || 0,
+            '비고': d.note || ''
+          }));
+        }
+        return [{
+          ...base,
+          'BOM(자재)': d.bom || '',
+          '불량 코드': d.defectCode || '',
           '수량': parseFloat(d.quantity) || 0,
           '비고': d.note || ''
-        };
+        }];
       });
     } else if (type === 'rework') {
       sheetName = '재작업';
@@ -3151,9 +3164,9 @@ function MFGProductionApp() {
         }
         return log.defectCode || '';
       };
-      data = reworkLogs.filter(r => prodLogMap[r.productionLogId]).map(r => {
+      data = reworkLogs.filter(r => prodLogMap[r.productionLogId]).flatMap(r => {
         const l = prodLogMap[r.productionLogId];
-        return {
+        const base = {
           '일자': l.productionDate,
           '라인': l.lineName,
           '주야': l.shift,
@@ -3163,11 +3176,23 @@ function MFGProductionApp() {
           '공정(Station)': r.station || '',
           '대분류': r.reworkType || '',
           '소분류': r.reworkSubType || '',
-          'BOM(자재)': formatBoms(r),
-          '재작업 코드': formatCodes(r),
+        };
+        if (r.boms && r.boms.length > 0) {
+          return r.boms.map(b => ({
+            ...base,
+            'BOM(자재)': b.name || '',
+            '재작업 코드': (r.bomDefectCodes && r.bomDefectCodes[b.name]) || b.defectCode || '',
+            '수량': parseFloat(b.totalQty) || 0,
+            '비고': r.note || ''
+          }));
+        }
+        return [{
+          ...base,
+          'BOM(자재)': r.bom || '',
+          '재작업 코드': r.defectCode || '',
           '수량': parseFloat(r.quantity) || 0,
           '비고': r.note || ''
-        };
+        }];
       });
     }
     
