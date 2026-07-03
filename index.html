@@ -3441,17 +3441,24 @@ function MFGProductionApp() {
       let driveOk = false;
       try {
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbxLFrxbAaBt1bBa3SUdDY9wY48tvt85mEDaj3tiKhyw_R7oJCC9GbOWLfWbdSohnQtB/exec';
+        // 드라이브(공유저장소) 저장은 압축 → MFGreport 로딩 빠름. 로컬 파일(jsonStr)은 비압축 유지.
+        const __saveObj = { ...dataToSave, savedAt: Date.now() };
+        let __driveFilename, __driveData;
+        if (typeof CompressionStream !== 'undefined') {
+          __driveData = await __gzipToB64(__saveObj);
+          __driveFilename = `tcp-backup-${timestamp}.json.gz`;
+        } else {
+          __driveData = __saveObj;
+          __driveFilename = filename;
+        }
         const res = await fetch(GAS_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'text/plain;charset=utf-8'
           },
           body: JSON.stringify({
-            filename,
-            data: {
-              ...dataToSave,
-              savedAt: Date.now()
-            }
+            filename: __driveFilename,
+            data: __driveData
           })
         });
         const j = await res.json();
