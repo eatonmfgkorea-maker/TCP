@@ -1184,6 +1184,12 @@ function MFGProductionApp() {
           return n.endsWith('.json') || n.endsWith('.json.gz');
         });
         if (matches.length === 0) return;
+        // modified(수정시각) 기준 최신 선택 — 파일명 형식(하이픈 유무) 섞여도 정확
+        matches.sort((a, b) => {
+          const ta = a.modified ? new Date(a.modified).getTime() : 0;
+          const tb = b.modified ? new Date(b.modified).getTime() : 0;
+          return tb - ta;
+        });
         const latest = matches[0];
         const loadRes = await fetch(`${GAS_URL}?action=load&id=${encodeURIComponent(latest.id)}`);
         const loadJson = await loadRes.json();
@@ -3369,7 +3375,7 @@ function MFGProductionApp() {
       className: "text-gray-500"
     }, "데이터를 불러오는 중... ", React.createElement("span", {
       className: "text-xs font-mono text-gray-400"
-    }, "V073"))));
+    }, "V074"))));
   }
   return React.createElement("div", {
     className: "w-full h-screen bg-gray-100 flex flex-col",
@@ -3417,7 +3423,7 @@ function MFGProductionApp() {
     className: "text-2xl font-bold"
   }, "TCP 생산관리 시스템"), React.createElement("span", {
     className: "ml-2 px-2 py-0.5 bg-white/20 rounded text-xs font-mono font-bold align-middle"
-  }, "V073")), React.createElement("div", {
+  }, "V074")), React.createElement("div", {
     className: "text-right"
   }, React.createElement("div", {
     className: "text-sm opacity-80"
