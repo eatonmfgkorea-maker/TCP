@@ -198,6 +198,37 @@
   
   <script type="text/babel">
     const { useState, useMemo, useEffect, useCallback } = React;
+
+    // ===== 백업 압축 (전송량 대폭 감소) =====
+    // 객체 → gzip → base64 문자열. 브라우저 내장 CompressionStream 사용.
+    async function __gzipToB64(obj) {
+      const json = JSON.stringify(obj);
+      const cs = new CompressionStream('gzip');
+      const stream = new Blob([new TextEncoder().encode(json)]).stream().pipeThrough(cs);
+      const buf = await new Response(stream).arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      // 바이트 → base64 (청크 단위로 안전하게)
+      let bin = '';
+      const CHUNK = 0x8000;
+      for (let i = 0; i < bytes.length; i += CHUNK) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+      }
+      return btoa(bin);
+    }
+    // 압축 백업 해제: base64(gzip) → 객체. 일반 객체면 그대로 반환.
+    async function __normalizeBackup(data) {
+      if (data == null) return null;
+      if (typeof data !== 'string') return data;
+      try {
+        const bin = atob(data);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const ds = new DecompressionStream('gzip');
+        const stream = new Blob([bytes]).stream().pipeThrough(ds);
+        const buf = await new Response(stream).arrayBuffer();
+        return JSON.parse(new TextDecoder().decode(buf));
+      } catch (e) { console.warn('압축 해제 실패:', e); return null; }
+    }
     
 
 function MFGProductionApp() {
@@ -799,19 +830,22 @@ function MFGProductionApp() {
         const listJson = await listRes.json();
         if (!listJson || !listJson.ok || !Array.isArray(listJson.files)) return;
         
-        // 2) tcp-backup- prefix 필터, 최신 1개 선택
-        const matches = listJson.files.filter(f =>
-          f && f.name && f.name.indexOf(PREFIX) === 0 && f.name.toLowerCase().endsWith('.json')
-        );
+        // 2) tcp-backup- prefix 필터, 최신 1개 선택 (.json 및 .json.gz 압축본 모두)
+        const matches = listJson.files.filter(f => {
+          if (!f || !f.name || f.name.indexOf(PREFIX) !== 0) return false;
+          const n = f.name.toLowerCase();
+          return n.endsWith('.json') || n.endsWith('.json.gz');
+        });
         if (matches.length === 0) return;
         const latest = matches[0];
         
         // 3) 해당 파일 로드
         const loadRes = await fetch(`${GAS_URL}?action=load&id=${encodeURIComponent(latest.id)}`);
         const loadJson = await loadRes.json();
-        if (!loadJson || !loadJson.ok || !loadJson.data) return;
+        if (!loadJson || !loadJson.ok || loadJson.data == null) return;
         
-        const data = loadJson.data;
+        const data = await __normalizeBackup(loadJson.data);
+        if (!data) return;
         console.log('Drive 최신본 로드 적용');
         const defaultDefectCodes = [
           'A(치수)', 'B(갈라짐)', 'C(파손)', 'D(이물질)', 'DF(Door힘)',
@@ -914,8 +948,17 @@ function MFGProductionApp() {
         const dataToSave = { productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, savedAt: Date.now() };
         const ts = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbxLFrxbAaBt1bBa3SUdDY9wY48tvt85mEDaj3tiKhyw_R7oJCC9GbOWLfWbdSohnQtB/exec';
-        await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ filename: `tcp-backup-${ts}.json`, data: dataToSave }) });
-        console.log('Drive 자동 백업 완료:', ts);
+        // 압축 저장: 파일명 .gz + data는 base64(gzip) 문자열. 구형 브라우저는 비압축 fallback.
+        let filename, payloadData;
+        if (typeof CompressionStream !== 'undefined') {
+          payloadData = await __gzipToB64(dataToSave);
+          filename = `tcp-backup-${ts}.json.gz`;
+        } else {
+          payloadData = dataToSave;
+          filename = `tcp-backup-${ts}.json`;
+        }
+        await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ filename, data: payloadData }) });
+        console.log('Drive 자동 백업 완료:', ts, typeof CompressionStream !== 'undefined' ? '(압축)' : '');
       } catch (e) { console.warn('Drive 자동 백업 실패:', e); }
     }, 30000); // 30초 디바운스
     return () => clearTimeout(timer);
