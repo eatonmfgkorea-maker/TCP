@@ -231,6 +231,24 @@ async function __normalizeBackup(data) {
     return null;
   }
 }
+// 오래된 백업 자동정리: 같은 prefix에서 최근 KEEP개만 남기고 삭제 (파일 누적 → 로딩 지연 방지)
+async function __pruneOldBackups(gasUrl, prefix, keep) {
+  try {
+    const res = await fetch(gasUrl + '?action=list');
+    const j = await res.json();
+    if (!j || !j.ok || !Array.isArray(j.files)) return;
+    const mine = j.files
+      .filter(f => f && f.name && f.name.indexOf(prefix) === 0)
+      .sort((a, b) => (b.modified || '').localeCompare(a.modified || ''));
+    const toDelete = mine.slice(keep);
+    // 과도한 삭제 방지: 한 번에 최대 50개만 (여러 번 저장하며 점진 정리)
+    for (const f of toDelete.slice(0, 50)) {
+      try { await fetch(gasUrl + '?action=delete&id=' + encodeURIComponent(f.id)); } catch {}
+    }
+    if (toDelete.length) console.log(`오래된 백업 정리: ${Math.min(toDelete.length,50)}개 삭제 (${prefix})`);
+  } catch (e) { /* 정리 실패는 무시 */ }
+}
+
 function MFGProductionApp() {
   const [activeTab, setActiveTab] = useState('production');
   const [activeSection, setActiveSection] = useState('TCP');
@@ -1302,6 +1320,7 @@ function MFGProductionApp() {
           })
         });
         console.log('Drive 자동 백업 완료:', ts, typeof CompressionStream !== 'undefined' ? '(압축)' : '');
+        __pruneOldBackups(GAS_URL, 'tcp-backup-', 30);
       } catch (e) {
         console.warn('Drive 자동 백업 실패:', e);
       }
@@ -3350,7 +3369,7 @@ function MFGProductionApp() {
       className: "text-gray-500"
     }, "데이터를 불러오는 중... ", React.createElement("span", {
       className: "text-xs font-mono text-gray-400"
-    }, "V072"))));
+    }, "V073"))));
   }
   return React.createElement("div", {
     className: "w-full h-screen bg-gray-100 flex flex-col",
@@ -3398,7 +3417,7 @@ function MFGProductionApp() {
     className: "text-2xl font-bold"
   }, "TCP 생산관리 시스템"), React.createElement("span", {
     className: "ml-2 px-2 py-0.5 bg-white/20 rounded text-xs font-mono font-bold align-middle"
-  }, "V072")), React.createElement("div", {
+  }, "V073")), React.createElement("div", {
     className: "text-right"
   }, React.createElement("div", {
     className: "text-sm opacity-80"
@@ -3467,6 +3486,7 @@ function MFGProductionApp() {
         });
         const j = await res.json();
         driveOk = !!j.ok;
+        if (driveOk) __pruneOldBackups(GAS_URL, 'tcp-backup-', 30);
       } catch (err) {
         driveOk = false;
       }
