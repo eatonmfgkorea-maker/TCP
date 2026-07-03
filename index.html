@@ -1184,13 +1184,14 @@ function MFGProductionApp() {
           return n.endsWith('.json') || n.endsWith('.json.gz');
         });
         if (matches.length === 0) return;
-        // modified(수정시각) 기준 최신 선택 — 파일명 형식(하이픈 유무) 섞여도 정확
-        matches.sort((a, b) => {
+        const __byMod = (a, b) => {
           const ta = a.modified ? new Date(a.modified).getTime() : 0;
           const tb = b.modified ? new Date(b.modified).getTime() : 0;
           return tb - ta;
-        });
-        const latest = matches[0];
+        };
+        // 압축본(.json.gz) 우선 — 있으면 그 중 최신, 없으면 비압축 최신
+        const __gz = matches.filter(f => f.name.toLowerCase().endsWith('.json.gz'));
+        const latest = (__gz.length > 0 ? __gz.sort(__byMod) : matches.sort(__byMod))[0];
         const loadRes = await fetch(`${GAS_URL}?action=load&id=${encodeURIComponent(latest.id)}`);
         const loadJson = await loadRes.json();
         if (!loadJson || !loadJson.ok || loadJson.data == null) return;
