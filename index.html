@@ -328,12 +328,521 @@
   </script>
   
   <script>
+/* MFG 인원편성 · OT/휴가 모듈 (V2) */
+window.MfgRoster=(function(){
+var CSS=".rp{--panel:#ffffff;--panel2:#f9fafb;--line:#e5e7eb;--line2:#d1d5db;--fg:#1f2937;--muted:#6b7280;--faint:#9ca3af;\n--accent:#2563eb;--accent-weak:#eff6ff;--nightcol:#f1f5f9;--nightbtn:#334155;--onfg:#ffffff;--nighthd:#e2e8f0;\n--ok:#15803d;--ok-weak:#dcfce7;--warn:#b45309;--warn-weak:#fef3c7;--bad:#dc2626;--bad-weak:#fee2e2;--sp:#7c3aed;--sp-weak:#ede9fe;\n--s0:#f3f4f6;--s0f:#6b7280;--s1:#fee2e2;--s1f:#b91c1c;--s2:#ffedd5;--s2f:#c2410c;--s3:#fef9c3;--s3f:#a16207;--s4:#dcfce7;--s4f:#15803d;--s5:#dbeafe;--s5f:#1d4ed8;\n--hol:#fef2f2;--drop:#dbeafe;color:var(--fg);font-size:12.5px;line-height:1.35}\n.rp.rp-fe{--accent:#16a34a;--accent-weak:#f0fdf4;--drop:#dcfce7}\n.rp .num,.rp table{font-variant-numeric:tabular-nums}\n.rp .toastbar{min-height:0;text-align:right;margin-top:-4px}\n.rp details.cfg summary{list-style:revert}\n.rp table.g{border-collapse:separate}\n.rp .btn{border-radius:8px}\n.rp *{box-sizing:border-box}\n.rp [hidden]{display:none!important}\n.rp .wrap{padding:0;display:flex;flex-direction:column;gap:8px}\n.rp .num{font-variant-numeric:tabular-nums}\n.rp .row{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between}\n.rp .ctrls{display:flex;flex-wrap:wrap;gap:6px;align-items:center}\n.rp button,.rp select,.rp input{font:inherit;color:var(--fg)}\n.rp .btn{border:1px solid var(--line2);background:var(--panel);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:12px;white-space:nowrap}\n.rp .btn:hover{border-color:var(--accent)}\n.rp .seg{display:inline-flex;border:1px solid var(--line2);border-radius:6px;overflow:hidden}\n.rp .seg button{border:0;background:var(--panel);padding:3px 10px;cursor:pointer;font-size:12px}\n.rp .seg button.on{background:var(--accent-weak);color:var(--accent);font-weight:600}\n.rp .g.mon th.mo,.rp .g.mon td.mo{border-left:2px solid var(--line2)}\n.rp .btn.arm{border-color:var(--bad);color:var(--bad)}\n.rp .wk{font-weight:600;font-size:13.5px;min-width:150px;text-align:center}\n.rp input[type=date]{border:1px solid var(--line2);background:var(--panel);border-radius:6px;padding:2px 6px;font-size:12px}\n.rp .tag{display:inline-block;font-size:10.5px;padding:0 6px;border-radius:99px;font-weight:600}\n.rp .tag.demo{background:var(--accent-weak);color:var(--accent)}\n.rp .kp{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;font-size:12px;color:var(--muted)}\n.rp .kp b{color:var(--fg);font-size:14px}\n.rp .kp input{width:46px;border:1px solid var(--line2);border-radius:5px;background:var(--panel);padding:0 4px;font-weight:600;font-size:13px}\n.rp .bad{color:var(--bad)!important}\n.rp .okc{color:var(--ok)!important}\n.rp .legend{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:11px;color:var(--muted)}\n.rp .lg{display:inline-block;padding:0 6px;border-radius:99px;font-weight:500}\n.rp .lg.s1{background:var(--s1);color:var(--s1f)}\n.rp .lg.s2{background:var(--s2);color:var(--s2f)}\n.rp .lg.s3{background:var(--s3);color:var(--s3f)}\n.rp .lg.s4{background:var(--s4);color:var(--s4f)}\n.rp .lg.s5{background:var(--s5);color:var(--s5f)}\n.rp .lg.s0{background:var(--s0);color:var(--s0f)}\n.rp .help{font-size:11.5px;color:var(--muted)}\n.rp .help b{color:var(--fg);font-weight:600}\n.rp .checks{display:flex;flex-wrap:wrap;gap:4px}\n.rp .ck{font-size:11.5px;padding:2px 8px;border-radius:5px}\n.rp .ck.bad{background:var(--bad-weak)}\n.rp .ck.warn{background:var(--warn-weak);color:var(--warn)}\n.rp .ck.ok{background:var(--ok-weak);color:var(--ok)}\n.rp .toast{font-size:11.5px;color:var(--ok)}\n.rp .gw{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:calc(100vh - 230px)}\n.rp table.g{border-collapse:separate;border-spacing:0;font-size:11.5px;width:100%;table-layout:fixed;min-width:860px}\n.rp .g th,.rp .g td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:1px 2px;text-align:center;white-space:nowrap;height:21px}\n.rp .g thead th{position:sticky;background:var(--panel2);z-index:3;font-weight:600}\n.rp .g thead tr.h1 th{top:0;height:30px;cursor:pointer;line-height:1.15}\n.rp .g thead tr.h1 th[data-hd]{cursor:grab}\n.rp .g thead tr.h1 th.dz{background:var(--drop)!important;outline:2px dashed var(--accent);outline-offset:-2px}\n.rp .g thead tr.h1 th:hover{background:var(--accent-weak)}\n.rp .g thead tr.h2 th{top:30px;height:22px;background:var(--panel2);font-weight:500}\n.rp .g thead tr.h2 th.c0{font-weight:700}\n.rp .otb{border:1px solid var(--line2);background:var(--panel);border-radius:4px;font-size:10.5px;padding:0 4px;margin:0 1px;cursor:pointer;}\n.rp .otb.cus{border-color:var(--accent);color:var(--accent);font-weight:600}\n.rp .otb.zero{color:var(--faint);text-decoration:line-through}\n.rp .otc input{width:44px;font-size:11px;border:1px solid var(--accent);border-radius:4px;background:var(--panel);padding:0 2px}\n.rp .g td.cell input[data-oth]{font-size:10.5px}\n.rp .g thead tr.h3 th{top:30px;font-weight:500;background:var(--panel);border-bottom:2px solid var(--line2);height:auto;vertical-align:middle}\n.rp .g thead tr.h3 th.c0,.rp .g thead tr.h3 th.c1{background:var(--panel2);font-weight:700}\n.rp .g thead tr.h3 th.off{background:var(--hol)}\n.rp .g .cell.dz{background:var(--drop)!important;outline:2px dashed var(--accent);outline-offset:-2px}\n.rp .g thead tr.h2 th{top:30px;font-size:10.5px;color:var(--muted);font-weight:500;height:17px}\n.rp .g thead th small{display:block;font-weight:500;font-size:10px;color:var(--muted)}\n.rp .g thead th.hol{color:var(--bad);background:var(--hol)}\n.rp .g thead th.sp{color:var(--sp);background:var(--sp-weak)}\n.rp .g thead th.today{box-shadow:inset 0 -2px 0 var(--accent)}\n.rp .g .c0{position:sticky;left:0;z-index:2;background:var(--panel2);text-align:left;font-weight:600;min-width:74px;padding-left:6px;vertical-align:top;padding-top:3px}\n.rp .g .c0 small{display:block;font-weight:400;color:var(--faint);font-size:10px}\n.rp .g .c1{position:sticky;left:84px;z-index:2;background:var(--panel2);color:var(--faint);font-size:10px;min-width:30px}\n.rp .g thead th.c0,.rp .g thead th.c1{z-index:4}\n.rp .g td.c0.n,.rp .g td.c1.n{background:var(--nighthd)}\n.rp .g td.cell{cursor:pointer;position:relative}\n.rp .g td.n{background:var(--nightcol)}\n.rp .g td.off{background:var(--hol)}\n.rp .g td.n.off{background:color-mix(in srgb,var(--hol) 60%,var(--nightcol))}\n.rp .g td.na{background:repeating-linear-gradient(45deg,transparent 0 4px,var(--line) 4px 5px);cursor:default}\n.rp .g td.dz{background:var(--drop)!important;outline:2px dashed var(--accent);outline-offset:-2px}\n.rp .g td.cell:not(.na):hover{box-shadow:inset 0 0 0 1px var(--accent)}\n.rp .g tr.lf td{border-top:1.5px solid var(--line2)}\n.rp .g tr.sec td{background:var(--panel2);font-weight:700;text-align:left;padding:3px 6px;font-size:11.5px;position:sticky;left:0}\n.rp .g tr.sum td{background:var(--panel2);font-weight:600;}\n.rp .g tr.sum td.c0{font-family:inherit}\n.rp .chip{display:inline-flex;align-items:center;gap:1px;padding:0 5px;border-radius:4px;font-weight:500;cursor:grab;user-select:none;max-width:100%;line-height:18px}\n.rp .chip:active{cursor:grabbing}\n.rp .chip .st{font-size:10px;font-weight:600;color:var(--bad)}\n.rp .chip .rs{font-size:10px;opacity:.8;overflow:hidden;text-overflow:ellipsis;max-width:60px}\n.rp .chip .x{display:none;border:0;background:transparent;color:inherit;opacity:.7;cursor:pointer;padding:0 0 0 2px;font-size:11px;line-height:1}\n.rp .chip:hover .x{display:inline}\n.rp .k0{background:var(--s0);color:var(--s0f)}\n.rp .k1{background:var(--s1);color:var(--s1f)}\n.rp .k2{background:var(--s2);color:var(--s2f)}\n.rp .k3{background:var(--s3);color:var(--s3f)}\n.rp .k4{background:var(--s4);color:var(--s4f)}\n.rp .k5{background:var(--s5);color:var(--s5f)}\n.rp .chip.ab{background:var(--warn-weak);color:var(--warn)}\n.rp .chip.err{outline:2px solid var(--bad);outline-offset:-1px}\n.rp .chip.half{background-image:linear-gradient(90deg,transparent 50%,color-mix(in srgb,var(--bad) 18%,transparent) 50%)}\n.rp .chip.half.am{background-image:linear-gradient(90deg,color-mix(in srgb,var(--bad) 18%,transparent) 50%,transparent 50%)}\n.rp .otbar{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}\n.rp table.ott{table-layout:auto;min-width:760px}\n.rp .ott th,.rp .ott td{padding:2px 6px;height:26px}\n.rp .ott thead th{position:sticky;top:0;background:var(--panel2);z-index:2}\n.rp .ott td.nm{text-align:left;font-weight:600;white-space:nowrap}\n.rp .ott td.pl{text-align:left;color:var(--muted);font-size:11px;white-space:nowrap}\n.rp .ott td.pl b{font-weight:600;color:var(--fg)}\n.rp .ott tr.vac td{background:var(--warn-weak)}\n.rp .ott tr.has td.nm{color:var(--accent)}\n.rp .tb{border:1px solid var(--line2);background:var(--panel);border-radius:5px;padding:1px 8px;font-size:11.5px;cursor:pointer;margin:0 1px;}\n.rp .tb.on{background:var(--accent);border-color:var(--accent);color:#fff}\n.rp .tb.onN{background:var(--nightbtn);border-color:var(--nightbtn);color:var(--onfg)}\n.rp .tb.onX{background:var(--bad);border-color:var(--bad);color:#fff}\n.rp .tb:disabled{opacity:.35;cursor:not-allowed}\n.rp .ott tr.blk td{color:var(--faint)}\n.rp .ott tr.blk td.nm{color:var(--fg)}\n.rp .ott input.hh:disabled{background:var(--panel2)}\n.rp .tb.on2{background:var(--sp);border-color:var(--sp);color:#fff}\n.rp .ott input.hh{width:56px;border:1px solid var(--line2);border-radius:5px;background:var(--panel);padding:1px 4px;text-align:right}\n.rp .ott select{border:1px solid var(--line2);border-radius:5px;background:var(--panel);font-size:12px}\n.rp .ott td.wn{color:var(--bad);font-size:11px;text-align:left}\n.rp .ott input.memo{width:100%;min-width:160px;border:1px solid var(--line2);border-radius:5px;background:var(--panel);padding:1px 6px;font-size:12px}\n.rp .chip .mm{font-size:9px;color:var(--warn);margin-left:1px}\n.rp .chip .ot{font-size:10px;font-weight:700;color:var(--accent);margin-left:1px}\n.rp .chip .ot.x2{color:var(--sp)}\n.rp .pool{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;padding:2px 0;white-space:normal;max-height:62px;overflow-y:auto}\n.rp .pool .chip{font-size:10.5px;padding:0 3px;line-height:16px}\n.rp .pool .chip{background:transparent;border:1px dashed var(--line2);color:var(--fg)}\n.rp .pool.alert .chip{border-color:var(--bad);color:var(--bad)}\n.rp .g td.cell select{width:100%;font-size:11.5px;border:1px solid var(--accent);border-radius:4px;background:var(--panel);padding:0}\n.rp .g td.cell input{width:100%;font-size:11px;border:1px solid var(--accent);border-radius:4px;background:var(--panel);padding:0 3px}\n.rp details.cfg{background:var(--panel);border:1px solid var(--line);border-radius:8px}\n.rp details.cfg[open] summary{border-bottom:1px solid var(--line)}\n.rp .skbody{padding:8px 12px 12px;display:flex;flex-direction:column;gap:6px}\n.rp .skwrap{overflow-x:auto}\n.rp .ctab.sk{width:auto;min-width:100%}\n.rp .ctab.sk th,.rp .ctab.sk td{text-align:center;padding:2px 4px}\n.rp .ctab.sk td.nm{text-align:left;font-weight:500;white-space:nowrap}\n.rp .ctab.sk td.dt{color:var(--muted);font-size:11px;white-space:nowrap}\n.rp .ctab.sk tr.q td{opacity:.5}\n.rp .ctab.sk tr.tot td{border-top:1.5px solid var(--line2);font-weight:600}\n.rp .ctab.sk td.dt.bad{background:var(--bad-weak)}\n.rp .skc{display:inline-block;min-width:34px;padding:1px 0;border-radius:4px;cursor:pointer;font-weight:600;user-select:none;}\n.rp .skc.dis{cursor:default;opacity:.55}\n.rp details.cfg summary{padding:7px 12px;cursor:pointer;font-weight:600;font-size:12.5px}\n.rp .cfgbody{padding:2px 12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:12px}\n@media (max-width:760px){.rp .cfgbody{grid-template-columns:1fr}}\n.rp .ctab{width:100%;border-collapse:collapse;font-size:12px}\n.rp .ctab th,.rp .ctab td{border-bottom:1px solid var(--line);padding:3px 5px;text-align:left}\n.rp .ctab th{font-size:11px;color:var(--muted);font-weight:500}\n.rp .otin{width:52px;border:1px solid var(--line2);border-radius:5px;background:var(--panel2);padding:1px 4px}\n.rp .ctab input[type=number]{width:48px;border:1px solid var(--line2);border-radius:5px;background:var(--panel2);padding:1px 4px}\n.rp .ctab input[type=text]{width:100%;border:1px solid var(--line2);border-radius:5px;background:var(--panel2);padding:1px 5px}\n.rp .ctab select{border:1px solid var(--line2);border-radius:5px;background:var(--panel2)}\n.rp .xb{border:0;background:transparent;color:var(--faint);cursor:pointer;font-size:14px}\n.rp .add{border:1px dashed var(--line2);background:transparent;border-radius:5px;padding:2px 8px;color:var(--muted);cursor:pointer;font-size:12px}";
+var SK="<div class=\"wrap\">\n  <div class=\"row\">\n    <div class=\"ctrls rosterOnly\">\n      <span class=\"seg\" id=\"rp-spanSeg\"><button data-s=\"w\" class=\"on\">1주</button><button data-s=\"m\">한달</button></span><button class=\"btn\" id=\"rp-prev\">‹ 이전</button><span class=\"wk num\" id=\"rp-wk\"></span><button class=\"btn\" id=\"rp-next\">다음 ›</button>\n      <input type=\"date\" id=\"rp-dpick\" aria-label=\"주 선택\">\n    </div>\n    <div class=\"ctrls rosterOnly\">\n      <button class=\"btn wonly\" id=\"rp-cpWeek\">지난주 편성 복사</button>\n      <button class=\"btn wonly\" id=\"rp-clrWeek\">이번주 비우기</button>\n    </div>\n  </div>\n  <div class=\"toastbar\"><span class=\"toast\" id=\"rp-toast\"></span></div>\n  <div class=\"row rosterOnly\">\n    <div class=\"kp\" id=\"rp-kp\"></div>\n    <div class=\"legend\">스킬 <span class=\"lg s1\">1 교육필요</span><span class=\"lg s2\">2 초급</span><span class=\"lg s3\">3 중간</span><span class=\"lg s4\">4 숙련</span><span class=\"lg s5\">조장</span><span class=\"lg s0\">– 없음</span></div>\n  </div>\n  <div class=\"help rosterOnly\"><b>끌어서 이동</b>(같은 날은 이동·자리바꿈, 다른 날로 끌면 복사) · <b>이름 클릭</b> 괄호 변경: 없음(잔업가능) → (잔업불가) → (오전반차) → (오후반차) · 반차는 휴가에 자동 추가 · <b>빈칸 클릭</b> 인원 선택 · <b>날짜 클릭</b> 특근/휴무 전환 · <b>날짜를 다른 날짜로 끌기</b> 하루 편성 통째 복사 · 미배치 칸으로 끌면 배치 해제 · <b>이름 우클릭</b> 그 날 OT/휴가 입력으로 이동 · 이름 옆 시간 = OT/휴가에서 넣은 잔업</div>\n  <div class=\"checks rosterOnly\" id=\"rp-checks\"></div>\n  <div class=\"gw rosterOnly\" id=\"rp-gw\"><table class=\"g\" id=\"rp-grid\"></table></div>\n  <section id=\"rp-otView\" hidden>\n    <div class=\"otbar\">\n      <button class=\"btn\" id=\"rp-otPrev\">◀ 이전일</button><span class=\"wk num\" id=\"rp-otDay\"></span><button class=\"btn\" id=\"rp-otNext\">다음일 ▶</button>\n      <input type=\"date\" id=\"rp-otPick\" aria-label=\"날짜 선택\">\n      <button class=\"btn\" id=\"rp-otCopy\">전일 OT 복사</button>\n      <span class=\"kp\" id=\"rp-otSum\"></span>\n    </div>\n    <div class=\"help\">그 날 재직자(입사·퇴사일 기준) 전원이 나옵니다. <b>1.5배 / 2배</b>로 구분하고 <b>0.5 · 2.5 · 8</b> 버튼으로 시간을 넣습니다 (시간 칸에서 직접 수정 가능). 휴가를 고르면 근무인원편성의 휴가·병가 줄에 바로 들어갑니다.</div>\n    <div class=\"gw\"><table class=\"g ott\" id=\"rp-otTab\"></table></div>\n  </section>\n  <details class=\"cfg\" id=\"rp-attDet\" open>\n    <summary>근태 집계 <span class=\"help\" id=\"rp-attSub\"></span></summary>\n    <div class=\"skbody\"><div class=\"skwrap\"><table class=\"ctab sk\" id=\"rp-attTab\"></table></div></div>\n  </details>\n  <details class=\"cfg\" id=\"rp-skDet\">\n    <summary>스킬 설정 (라인별)</summary>\n    <div class=\"skbody\"><div class=\"help\">칸을 누를 때마다 – → 1 → 2 → 3 → 4 순서로 바뀝니다. 조장 체크 시 모든 라인 조장급. 인원·입사일·퇴사일은 «인원관리» 탭 기준입니다. 조장 체크는 인원관리의 직책(조장)과 같이 바뀝니다.</div>\n      <label class=\"help\"><input type=\"checkbox\" id=\"rp-skAll\"> 퇴사자도 보기</label>\n      <div class=\"skwrap\"><table class=\"ctab sk\" id=\"rp-skTab\"></table></div></div>\n  </details>\n  <details class=\"cfg\">\n    <summary>라인 · 슬롯 설정</summary>\n    <div class=\"cfgbody\" id=\"rp-cfgBody\"></div>\n  </details>\n</div>";
+function injectCss(){if(document.getElementById('mfg-roster-css'))return;var s=document.createElement('style');s.id='mfg-roster-css';s.textContent=CSS;document.head.appendChild(s)}
+function create(root){injectCss();root.classList.add('rp');root.innerHTML=SK;
+
+const HOL = {
+ '2026-01-01':'신정','2026-02-16':'설날','2026-02-17':'설날','2026-02-18':'설날','2026-03-01':'삼일절','2026-03-02':'대체휴일','2026-05-05':'어린이날','2026-05-24':'부처님오신날','2026-05-25':'대체휴일','2026-06-03':'지방선거','2026-06-06':'현충일','2026-08-15':'광복절','2026-08-17':'대체휴일','2026-09-24':'추석','2026-09-25':'추석','2026-09-26':'추석','2026-10-03':'개천절','2026-10-05':'대체휴일','2026-10-09':'한글날','2026-12-25':'성탄절',
+ '2027-01-01':'신정','2027-02-06':'설날','2027-02-07':'설날','2027-02-08':'설날','2027-02-09':'대체휴일','2027-03-01':'삼일절','2027-05-05':'어린이날','2027-05-13':'부처님오신날','2027-06-06':'현충일','2027-08-15':'광복절','2027-08-16':'대체휴일','2027-09-14':'추석','2027-09-15':'추석','2027-09-16':'추석','2027-10-03':'개천절','2027-10-04':'대체휴일','2027-10-09':'한글날','2027-10-11':'대체휴일','2027-12-25':'성탄절','2027-12-27':'대체휴일'};
+const DEF_CFGS = {
+ TCP:{'주간':[{k:'1PC',lead:true,n:6,sk:''},{k:'2PC',lead:true,n:8,sk:''},{k:'Y9 & Open',lead:false,n:2,sk:''},{k:'Disk Pack',lead:false,n:4,sk:''},{k:'세척',lead:false,n:2,sk:''}],'야간':[{k:'야간',lead:true,n:8,sk:'*'}]},
+ FE:{'주간':[{k:'조장',lead:false,n:2,sk:'*'},{k:'LVS',lead:false,n:2,sk:''},{k:'A/FLVV',lead:false,n:2,sk:''},{k:'M/FLVV',lead:false,n:3,sk:''},{k:'A/GVV',lead:false,n:2,sk:''},{k:'M/GVV',lead:false,n:4,sk:''},{k:'UCC',lead:false,n:3,sk:''},{k:'FTIV',lead:false,n:4,sk:''},{k:'ICV',lead:false,n:6,sk:''},{k:'ES',lead:false,n:2,sk:''},{k:'Sub',lead:false,n:2,sk:''}],'야간':[{k:'야간',lead:true,n:8,sk:'*'}]}
+};
+const ABK=['휴가','병가','기타'];
+const STL=['','잔업불가','오전반차','오후반차'];
+const SH=['주간','야간'];
+const _now=new Date();const TODAY=`${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
+let API=null,SEC='TCP',st=null,cur=TODAY,emps=[],E={},lastData=null,lastEmps=null,lastSkill=null,lastSkillJson='',lastLeadJson='';
+const clone=o=>JSON.parse(JSON.stringify(o));
+function save(){const cl=enforceOt();if(cl.length)flash('잔업 지움: '+cl.join(', '));
+  const data={cfg:st.cfg,roster:st.roster,need:st.need,dt:st.dt,otx:st.otx,otPresets:st.otPresets,v:2};
+  const out=clone(data);lastData=out;if(API&&API.onCommit)API.onCommit(out);
+  const sj=JSON.stringify(st.skill);if(sj!==lastSkillJson){lastSkillJson=sj;const sk=clone(st.skill);lastSkill=sk;if(API&&API.onSkill)API.onSkill(sk)}
+  const lj=JSON.stringify(st.lead);if(lj!==lastLeadJson){lastLeadJson=lj;if(API&&API.onLead)API.onLead(clone(st.lead))}}
+function otBlock(d,n){const r=st.roster[d];const c=r?.st?.[n]||0;if(c===1)return '잔업불가';if(c===3)return '오후반차';const v=vacOf(d,n);return v&&v!=='오전반차'?v:''}
+function enforceOt(){const out=[];for(const d in st.otx){const m=st.otx[d];for(const n in m){const b=otBlock(d,n);if(b&&(m[n].k||m[n].h)){delete m[n].k;delete m[n].h;out.push(`${n}(${md(d)} ${b})`);if(!m[n].sh&&!m[n].memo)delete m[n]}}if(!Object.keys(m).length)delete st.otx[d]}return out}
+const $=s=>root.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pd=d=>new Date(d+'T00:00:00');
+const fd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const add=(d,n)=>{const x=pd(d);x.setDate(x.getDate()+n);return fd(x)};
+const WD='일월화수목금토';const wd=d=>pd(d).getDay();
+const md=d=>`${+d.slice(5,7)}/${+d.slice(8)}`;
+const isOffBase=d=>wd(d)===0||wd(d)===6||!!HOL[d];
+const hasWork=d=>{const r=st.roster[d];if(!r)return false;return SH.some(sh=>Object.values(r[sh]||{}).some(v=>v.L||(v.M||[]).some(Boolean)))};
+const dtype=d=>st.dt[d]||(isOffBase(d)?(hasWork(d)?'특근':'휴무'):'근무');   // 근무 | 휴무 | 특근
+const isWork=d=>dtype(d)!=='휴무';
+const active=(n,d)=>{const e=E[n];return !!e&&e.j<=d&&(!e.q||e.q>=d)};
+const activeList=d=>emps.filter(e=>active(e.n,d)).map(e=>e.n);
+const cfgOf=(sh,k)=>st.cfg[sh].find(c=>c.k===k);
+const skillCols=()=>{const a=[];SH.forEach(sh=>st.cfg[sh].forEach(c=>{if(c.sk===''&&!a.includes(c.k))a.push(c.k)}));return a};
+const isLead=n=>!!(st.lead&&st.lead[n]);
+function skillOf(n,c){if(!E[n])return 0;if(isLead(n))return 5;if(!c)return 5;const m=st.skill[n]||{};
+  if(c.sk==='*')return Math.max(0,...skillCols().map(k=>m[k]||0));return m[c.sk||c.k]||0}
+let span='w',needScroll=true;
+const viewDays=()=>{if(span==='w')return weekDays();const f=cur.slice(0,8)+'01';const n=new Date(+cur.slice(0,4),+cur.slice(5,7),0).getDate();return Array.from({length:n},(_,i)=>add(f,i))};
+const weekDays=()=>{const m=add(cur,-((wd(cur)+6)%7));return Array.from({length:7},(_,i)=>add(m,i))};
+
+function day(d){
+  const r=st.roster[d]||(st.roster[d]={});
+  for(const sh of SH){r[sh]=r[sh]||{};for(const c of st.cfg[sh])r[sh][c.k]=r[sh][c.k]||{L:null,M:[]}}
+  r.abs=r.abs||{};for(const k of ABK)r.abs[k]=r.abs[k]||[];
+  r.st=r.st||{};return r;
+}
+const peek=d=>st.roster[d];
+function placements(d){
+  const r=peek(d),P={};if(!r)return P;
+  const put=(n,w)=>{if(n)(P[n]=P[n]||[]).push(w)};
+  for(const sh of SH){const L=r[sh]||{};for(const k in L){const v=L[k];put(v.L,{t:'s',sh,k,i:'L'});(v.M||[]).forEach((n,i)=>put(n,{t:'s',sh,k,i}))}}
+  for(const k of ABK)(r.abs?.[k]||[]).forEach((a,j)=>put(a.n,{t:'a',ab:k,j}));
+  return P;
+}
+const wl=w=>w.sh==='야간'?'야간':'주간 '+w.k;
+const fmtH=h=>(Math.round(h*10)/10).toString();
+const otOf=(d,n)=>{const o=st.otx[d]&&st.otx[d][n];return o&&o.h>0?o:null};
+const otTag=o=>o?(o.k===2?'2배 ':'')+fmtH(o.h)+'h':'';
+function hrs(n,d){ // {nor,o15,o2,sh}
+  const r=peek(d);const o=otOf(d,n);const z={nor:0,o15:o&&o.k!==2?o.h:0,o2:o&&o.k===2?o.h:0,sh:null};
+  const P=placements(d)[n];if(!P||!r)return z;const w=P.find(x=>x.t==='s');if(!w)return z;
+  const c=r.st?.[n]||0;z.sh=w.sh;if(dtype(d)==='근무')z.nor=(c===2||c===3)?4:8;return z;
+}
+const isHalf=(r,n)=>[2,3].includes(r?.st?.[n]);
+function stats(d){
+  const r=peek(d),P=placements(d),act=activeList(d);
+  const cnt={주간:0,야간:0},ab={휴가:0,병가:0,기타:0};
+  for(const n in P)for(const w of P[n]){if(w.t==='s')cnt[w.sh]++;else ab[w.ab]++}
+  const dups=Object.entries(P).filter(([n,w])=>{if(w.length<2)return false;
+    if(w.length===2&&isHalf(r,n)&&w.some(x=>x.t==='s')&&w.some(x=>x.ab==='휴가'))return false;return true});
+  const unreg=Object.keys(P).filter(n=>!active(n,d));
+  const un=act.filter(n=>!P[n]);
+  const low=[];for(const n in P)for(const w of P[n])if(w.t==='s'&&E[n]&&!isLead(n)){const s=skillOf(n,cfgOf(w.sh,w.k));if(s===1)low.push({n,w,s})}
+  return {act,cnt,ab,dups,unreg,un,low,P};
+}
+
+/* ---------- mutations ---------- */
+function getAt(r,t){if(t.kind==='s'){const v=r[t.sh][t.k];return t.i==='L'?v.L:(v.M[t.i]||null)}if(t.kind==='a'){const a=r.abs[t.ab][t.j];return a?a.n:null}return null}
+function setAt(r,t,n){
+  if(t.kind==='s'){const v=r[t.sh][t.k];if(t.i==='L')v.L=n;else{v.M[t.i]=n;for(let j=0;j<v.M.length;j++)if(v.M[j]===undefined)v.M[j]=null;while(v.M.length&&!v.M[v.M.length-1])v.M.pop()}}
+  else if(t.kind==='a'){const L=r.abs[t.ab];if(!n){L.splice(t.j,1);return}if(t.j<L.length)L[t.j]={n,r:L[t.j].r&&L[t.j].n===n?L[t.j].r:''};else L.push({n,r:''})}
+}
+function removeName(r,n,onlyAbs){ // returns first old position
+  let old=null;
+  if(!onlyAbs)for(const sh of SH)for(const k in r[sh]){const v=r[sh][k];
+    if(v.L===n){old=old||{kind:'s',sh,k,i:'L'};v.L=null}
+    v.M.forEach((x,i)=>{if(x===n){old=old||{kind:'s',sh,k,i};v.M[i]=null}});
+    while(v.M.length&&!v.M[v.M.length-1])v.M.pop()}
+  for(const k of ABK){const L=r.abs[k];for(let j=L.length-1;j>=0;j--)if(L[j].n===n){old=old||{kind:'a',ab:k,j};L.splice(j,1)}}
+  return old;
+}
+function drop(n,src,t){
+  const r=day(t.d);
+  if(t.kind==='pool'){if(src===t.d){removeName(r,n);delete r.st[n]}return}
+  if(getAt(r,t)===n)return;
+  const keepSlot=t.kind==='a'&&t.ab==='휴가'&&isHalf(r,n);
+  const old=removeName(r,n,keepSlot);
+  if(t.kind==='a'&&!keepSlot)delete r.st[n];
+  if(src!==t.d&&t.kind==='s')delete r.st[n];
+  const y=getAt(r,t);
+  setAt(r,t,n);
+  if(y&&y!==n&&old&&!(old.kind==='a'&&t.kind==='a'&&old.ab===t.ab)){setAt(r,old,y)}
+}
+function cycle(d,n){
+  const r=day(d);const c=r.st[n]||0;const nx=(c+1)%4;
+  if(nx)r.st[n]=nx;else delete r.st[n];
+  const L=r.abs['휴가'];const j=L.findIndex(a=>a.n===n);
+  if(nx===2||nx===3){if(j<0)L.push({n,r:STL[nx],auto:1});else{L[j].r=STL[nx];L[j].auto=1}}
+  else if(j>=0&&L[j].auto)L.splice(j,1);
+}
+
+/* ---------- render ---------- */
+let edit=null,rendering=false; // {d,kind,...} cell being edited
+function render(){
+  const days=viewDays();const M=span==='m';
+  $('#rp-wk').textContent=M?`${cur.slice(0,4)}년 ${+cur.slice(5,7)}월`:`${md(days[0])} ~ ${md(days[6])}`;
+  root.querySelectorAll('.wonly').forEach(b=>b.hidden=M||view!=='roster');
+  $('#rp-dpick').value=cur;
+  const ss=days.map(stats);
+  const need=+st.need||0;const base=days.includes(TODAY)?TODAY:days[0];const act=activeList(base).length;const gap=need?act-need:null;
+  $('#rp-kp').innerHTML=`<span>재직 <b class="num">${act}</b>명 (${md(base)})</span><span>SIOP 필요 <input id="rp-need" type="number" min="0" value="${need||''}" placeholder="-"></span><span>과부족 <b class="num ${gap==null?'':gap<0?'bad':'okc'}">${gap==null?'–':(gap>0?'+':'')+gap}</b></span>`;
+  $('#rp-need').onchange=e=>{st.need=+e.target.value||0;save();render()};
+  // checks
+  const ch=[];
+  days.forEach((d,i)=>{const s=ss[i];
+    s.dups.forEach(([n,w])=>ch.push(`<span class="ck bad">${md(d)} 중복 · ${esc(n)} (${w.map(x=>x.t==='a'?x.ab:wl(x)).join(' / ')})</span>`));
+    s.unreg.forEach(n=>ch.push(`<span class="ck bad">${md(d)} ${E[n]?'퇴사자':'명단 미등록'} · ${esc(n)}</span>`));
+    s.low.forEach(x=>ch.push(`<span class="ck warn">${md(d)} 스킬 ${x.s||'없음'} · ${esc(x.n)} ${wl(x.w)}</span>`));
+    otWarn(d).forEach(w=>ch.push(`<span class="ck warn">${md(d)} ${esc(w)}</span>`));
+  });
+  $('#rp-checks').innerHTML=ch.length?ch.join(''):`<span class="ck ok">${span==='m'?'이번달':'이번주'} 중복·미등록·스킬 문제 없음</span>`;
+
+  const order=[];const dayL=st.cfg['주간'],nightL=st.cfg['야간'];
+  dayL.forEach(c=>order.push({sh:'주간',c}));nightL.forEach(n=>order.push({sh:'야간',c:n}));
+  const rs=days.map(d=>peek(d));
+  const dupS=ss.map(s=>new Set(s.dups.map(x=>x[0])));
+  const offc=d=>isWork(d)?'':' off';
+  let h='<colgroup><col style="width:84px"><col style="width:34px">'+days.map(()=>M?'<col style="width:92px">':'<col>').join('')+'</colgroup><thead><tr class="h1"><th class="c0">라인</th><th class="c1"></th>';
+  days.forEach(d=>{const t=dtype(d);const cls=t==='특근'?'sp':t==='휴무'?'hol':'';
+    const sub=(HOL[d]?HOL[d]+' ':'')+(t==='특근'?'특근':t==='휴무'&&!isOffBase(d)?'휴무':'');
+    h+=`<th class="${cls} ${d===TODAY?'today':''}" data-hd="${d}" draggable="true" title="클릭: 특근/휴무 전환 · 다른 날짜로 끌기: 하루 편성 복사">${md(d)} (${WD[wd(d)]})<small>${sub||'&nbsp;'}</small></th>`});
+  h+='</tr>';
+  h+=`<tr class="h3"><th class="c0">미배치</th><th class="c1"></th>${ss.map((s,i)=>{const d=days[i];
+    return `<th class="cell${offc(d)}" data-d="${d}" data-kind="pool">${isWork(d)?`<div class="pool ${dtype(d)==='근무'&&s.un.length?'alert':''}">${s.un.map(n=>`<span class="chip" draggable="true" data-n="${esc(n)}" data-src="${d}">${esc(n)}</span>`).join('')}</div>`:`<span class="help">휴무 · 날짜 클릭 시 특근</span>`}</th>`}).join('')}</tr>`;
+  h+='</thead><tbody>';
+
+  const chip=(n,i,c,d,r)=>{
+    const bad=dupS[i].has(n)||!active(n,d);const s=E[n]?skillOf(n,c):0;const stc=r?.st?.[n]||0;
+    const o=otOf(d,n)||(st.otx[d]?.[n]?.memo?{memo:st.otx[d][n].memo,h:0}:null);
+    return `<span class="chip k${s}${bad?' err':''}${stc>=2?' half'+(stc===2?' am':''):''}" draggable="true" data-n="${esc(n)}" data-src="${d}" data-cy="1" title="${o&&o.memo?'비고: '+esc(o.memo)+' · ':''}클릭: 괄호 변경 · 우클릭: 그 날 OT/휴가 입력">${esc(n)}${(st.otx[d]?.[n]?.memo)?'<span class="mm">✎</span>':''}${o&&o.h>0?`<span class="ot${o.k===2?' x2':''}">${otTag(o)}</span>`:''}${stc?`<span class="st">(${STL[stc]})</span>`:''}<button class="x" data-rm="1" aria-label="빼기">×</button></span>`;
+  };
+  for(const {sh,c} of order){
+    const k=c.k;const nt=sh==='야간'?' n':'';
+    let mx=0;rs.forEach(r=>{const v=r?.[sh]?.[k];if(v)mx=Math.max(mx,(v.M||[]).length)});
+    const rows=[];if(c.lead)rows.push('L');for(let j=0;j<mx+1;j++)rows.push(j);
+    rows.forEach((ri,x)=>{
+      h+=`<tr class="${x===0?'lf':''}${nt?' nr':''}">`;
+      if(x===0)h+=`<td class="c0${nt}" rowspan="${rows.length}">${sh==='야간'&&k==='야간'?'☾ 야간':(sh==='야간'?'☾ ':'')+esc(k)}<small>필요 ${c.lead?'조장+':''}${c.n}</small></td>`;
+      h+=`<td class="c1${nt}">${ri==='L'?'조장':ri+1}</td>`;
+      days.forEach((d,i)=>{const r=rs[i];
+        const v=r?.[sh]?.[k];const n=v?(ri==='L'?v.L:(v.M||[])[ri]):null;
+        const ed=edit&&edit.d===d&&edit.kind==='s'&&edit.sh===sh&&edit.k===k&&String(edit.i)===String(ri);
+        h+=`<td class="cell${nt}${offc(d)}" data-d="${d}" data-kind="s" data-sh="${sh}" data-k="${esc(k)}" data-i="${ri}">${ed?pick(d,n,c):(n?chip(n,i,c,d,r):'')}</td>`;
+      });
+      h+='</tr>';
+    });
+  }
+  h+=`<tr class="sum"><td class="c0" colspan="2">배치 인원</td>${ss.map((s,i)=>`<td class="${offc(days[i])}">주 ${s.cnt['주간']} · 야 ${s.cnt['야간']}</td>`).join('')}</tr>`;
+  // absence
+  for(const ab of ABK){
+    const mx=Math.max(0,...rs.map(r=>(r?.abs?.[ab]||[]).length))+1;
+    for(let j=0;j<mx;j++){
+      h+=`<tr class="${j===0?'lf':''}">`;
+      if(j===0)h+=`<td class="c0" rowspan="${mx}">${ab}</td>`;
+      h+=`<td class="c1">${j+1}</td>`;
+      days.forEach((d,i)=>{const a=(rs[i]?.abs?.[ab]||[])[j];
+        const ed=edit&&edit.d===d&&edit.kind==='a'&&edit.ab===ab&&edit.j===j;
+        let inner='';
+        if(ed&&edit.mode==='reason')inner=`<input data-reason="1" value="${esc(a?.r||'')}" placeholder="사유">`;
+        else if(ed)inner=pick(d,a?.n,null);
+        else if(a&&a.n)inner=`<span class="chip ab${dupS[i].has(a.n)?' err':''}" draggable="true" data-n="${esc(a.n)}" data-src="${d}" data-rsn="1" title="클릭: 사유 입력">${esc(a.n)}${a.r?`<span class="rs">(${esc(a.r)})</span>`:''}<button class="x" data-rm="1" aria-label="빼기">×</button></span>`;
+        h+=`<td class="cell${offc(d)}" data-d="${d}" data-kind="a" data-ab="${ab}" data-j="${j}">${inner}</td>`});
+      h+='</tr>';
+    }
+  }
+  const HH=days.map(d=>{let nor=0,o15=0,o2=0,otn=0;const N=new Set([...Object.keys(placements(d)),...Object.keys(st.otx[d]||{})]);for(const n of N){const x=hrs(n,d);nor+=x.nor;o15+=x.o15;o2+=x.o2;if(x.o15+x.o2>0)otn++}return {nor,o15,o2,otn}});
+  h+=`<tr class="sum lf"><td class="c0" colspan="2">잔업 인원 · 1.5배/2배(h)</td>${HH.map((x,i)=>`<td class="${offc(days[i])}">${x.otn}명 · ${fmtH(x.o15)}/${fmtH(x.o2)}</td>`).join('')}</tr>`;
+  h+=`<tr class="sum"><td class="c0" colspan="2">총 근무 인시</td>${HH.map((x,i)=>`<td class="${offc(days[i])}">${fmtH(x.nor+x.o15+x.o2)}</td>`).join('')}</tr>`;
+  h+=`<tr class="sum lf"><td class="c0" colspan="2">재직 / 미출근</td>${ss.map((s,i)=>`<td class="${offc(days[i])}">${s.act.length} / ${s.ab['휴가']+s.ab['병가']+s.ab['기타']}</td>`).join('')}</tr>`;
+  h+=`<tr class="sum"><td class="c0" colspan="2">과부족 (재직−${need})</td>${ss.map((s,i)=>{if(!need)return `<td class="${offc(days[i])}">–</td>`;const g=s.act.length-need;return `<td class="${g<0?'bad':'okc'}${offc(days[i])}">${g>0?'+':''}${g}</td>`}).join('')}</tr>`;
+  h+='</tbody>';
+  const gw=$('#rp-gw');const sl=gw.scrollLeft;
+  const G2=$('#rp-grid');G2.classList.toggle('mon',M);G2.style.width=M?(118+days.length*92)+'px':'';G2.style.minWidth=M?'0':'';
+  rendering=true;try{G2.innerHTML=h}finally{rendering=false}
+  if(M){G2.querySelectorAll('[data-d],[data-hd]').forEach(el=>{const d=el.dataset.d||el.dataset.hd;if(wd(d)===1&&d!==days[0])el.classList.add('mo')})}
+  if(needScroll){needScroll=false;const th=G2.querySelector(`th[data-hd="${days.includes(TODAY)?TODAY:days[0]}"]`);gw.scrollLeft=M&&th?Math.max(0,th.offsetLeft-118-92):0}else gw.scrollLeft=sl;
+  const inp=$('#rp-grid select, #rp-grid input');if(inp){inp.focus();}
+  renderCfg();renderSkill();renderAtt(days);
+}
+function pick(d,sel,c){
+  const P=placements(d);const act=activeList(d);
+  const f=n=>{const s=c?skillOf(n,c):null;return esc(n)+(s===5?' · 조장':s!=null?' · '+(s||'–'):'')};
+  const free=act.filter(n=>!P[n]),used=act.filter(n=>P[n]&&n!==sel);
+  return `<select data-pick="1"><option value="">선택…</option>${free.length?'<optgroup label="미배치">'+free.map(n=>`<option value="${esc(n)}">${f(n)}</option>`).join('')+'</optgroup>':''}${used.length?'<optgroup label="이미 배치 (옮겨짐)">'+used.map(n=>{const w=P[n][0];return `<option value="${esc(n)}">${f(n)} ← ${w.t==='a'?w.ab:wl(w)}</option>`}).join('')+'</optgroup>':''}</select>`;
+}
+const tgtOf=td=>{const x=td.dataset;return {d:x.d,kind:x.kind,sh:x.sh,k:x.k,i:x.i==='L'?'L':(x.i!=null?+x.i:undefined),ab:x.ab,j:x.j!=null?+x.j:undefined}};
+
+/* ---------- events (delegated) ---------- */
+const G=$('#rp-grid');
+let dragN=null,dragSrc=null;
+G.addEventListener('dragstart',e=>{const c=e.target.closest('.chip');if(!c)return;dragN=c.dataset.n;dragSrc=c.dataset.src;try{e.dataTransfer.setData('text/plain',dragN);e.dataTransfer.effectAllowed='copyMove'}catch(_){}});
+G.addEventListener('dragover',e=>{const td=e.target.closest('.cell');if(!td||!dragN)return;e.preventDefault();G.querySelectorAll('.dz').forEach(x=>x!==td&&x.classList.remove('dz'));td.classList.add('dz')});
+G.addEventListener('dragleave',e=>{const td=e.target.closest('.cell');if(td&&!td.contains(e.relatedTarget))td.classList.remove('dz')});
+G.addEventListener('drop',e=>{const td=e.target.closest('.cell');if(!td||!dragN)return;e.preventDefault();
+  const t=tgtOf(td);drop(dragN,dragSrc,t);
+  if(dragSrc!==t.d&&t.kind!=='pool')flash(`${md(dragSrc)} → ${md(t.d)} ${dragN} 복사`);
+  dragN=null;edit=null;save();render()});
+let dragDay=null,undo=null;
+G.addEventListener('dragstart',e=>{const th=e.target.closest&&e.target.closest('th[data-hd]');if(!th)return;dragDay=th.dataset.hd;try{e.dataTransfer.setData('text/plain',dragDay);e.dataTransfer.effectAllowed='copy'}catch(_){}});
+G.addEventListener('dragover',e=>{if(!dragDay)return;const th=e.target.closest('th[data-hd]');if(!th||th.dataset.hd===dragDay)return;e.preventDefault();G.querySelectorAll('.dz').forEach(x=>x!==th&&x.classList.remove('dz'));th.classList.add('dz')});
+G.addEventListener('drop',e=>{if(!dragDay)return;const th=e.target.closest('th[data-hd]');e.preventDefault();if(th&&th.dataset.hd!==dragDay)copyDay(dragDay,th.dataset.hd);dragDay=null});
+function copyDay(src,dst){
+  const s=peek(src);
+  undo={d:dst,roster:st.roster[dst]?JSON.parse(JSON.stringify(st.roster[dst])):null,otx:st.otx[dst]?JSON.parse(JSON.stringify(st.otx[dst])):null,dt:st.dt[dst]};
+  if(!s){delete st.roster[dst]}
+  else{const c=JSON.parse(JSON.stringify(s));const ok=n=>n&&active(n,dst);
+    for(const sh of SH)for(const k in c[sh]||{}){const v=c[sh][k];if(v.L&&!ok(v.L))v.L=null;v.M=(v.M||[]).map(n=>ok(n)?n:null);while(v.M.length&&!v.M[v.M.length-1])v.M.pop()}
+    for(const k of ABK)c.abs[k]=(c.abs?.[k]||[]).filter(a=>ok(a.n));
+    if(c.st)for(const n in c.st)if(!ok(n))delete c.st[n];
+    st.roster[dst]=c}
+  if(st.otx[src]){const o=JSON.parse(JSON.stringify(st.otx[src]));for(const n in o)if(!active(n,dst))delete o[n];st.otx[dst]=o}else delete st.otx[dst];
+  if(!isWork(dst)&&hasWork(dst))st.dt[dst]='특근';
+  save();render();
+  const t=$('#rp-toast');t.innerHTML=`${md(src)} → ${md(dst)} 하루 편성 복사 완료 <button class="btn" id="rp-undoBtn">되돌리기</button>`;
+  $('#rp-undoBtn').onclick=()=>{if(!undo)return;const u=undo;undo=null;if(u.roster)st.roster[u.d]=u.roster;else delete st.roster[u.d];
+    if(u.otx)st.otx[u.d]=u.otx;else delete st.otx[u.d];if(u.dt)st.dt[u.d]=u.dt;else delete st.dt[u.d];save();render();flash('되돌렸습니다')};
+  clearTimeout(flash.t);flash.t=setTimeout(()=>{t.textContent='';undo=null},8000);
+}
+G.addEventListener('dragend',()=>{dragN=null;dragDay=null;G.querySelectorAll('.dz').forEach(x=>x.classList.remove('dz'))});
+G.addEventListener('click',e=>{
+  const hd=e.target.closest('th[data-hd]');
+  if(hd){const d=hd.dataset.hd;const t=dtype(d);
+    if(isOffBase(d))st.dt[d]=t==='특근'?'휴무':'특근';
+    else{if(t==='휴무')delete st.dt[d];else st.dt[d]='휴무'}
+    save();render();return}
+  if(e.target.closest('select,input'))return;
+  const rm=e.target.closest('[data-rm]');const chipEl=e.target.closest('.chip');
+  const td=e.target.closest('.cell');if(!td)return;const t=tgtOf(td);
+  if(rm&&chipEl){const r=day(t.d);const n=chipEl.dataset.n;
+    if(t.kind==='s'){setAt(r,t,null);if(isHalf(r,n)){const L=r.abs['휴가'];const j=L.findIndex(a=>a.n===n&&a.auto);if(j>=0)L.splice(j,1)}delete r.st[n]}
+    else if(t.kind==='a'){const a=r.abs[t.ab][t.j];r.abs[t.ab].splice(t.j,1);if(a&&a.auto)delete r.st[a.n]}
+    save();render();return}
+  if(chipEl&&chipEl.dataset.cy){cycle(t.d,chipEl.dataset.n);save();render();return}
+  if(chipEl&&chipEl.dataset.rsn){edit={...t,mode:'reason'};render();return}
+  if(t.kind==='pool'||chipEl)return;
+  edit=t;render();
+});
+G.addEventListener('contextmenu',e=>{
+  const ch=e.target.closest('.chip[data-cy]');if(ch){e.preventDefault();cur=ch.dataset.src;otFocus=ch.dataset.n;setView('ot')}
+});
+G.addEventListener('change',e=>{
+  if(e.target.dataset.pick&&edit){const n=e.target.value;if(n){drop(n,edit.d,edit);save()}edit=null;render()}
+});
+G.addEventListener('focusout',e=>{
+  if(rendering||e.target.tagName!=='INPUT')return;
+  if(!edit||!e.target.dataset.reason)return;
+  const r=day(edit.d);const a=r.abs[edit.ab][edit.j];if(a){a.r=e.target.value.trim();a.auto=0}
+  edit=null;save();render();
+});
+G.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.reason)e.target.blur();if(e.key==='Escape'){edit=null;render()}});
+
+function flash(m){const t=$('#rp-toast');t.textContent=m;clearTimeout(flash.t);flash.t=setTimeout(()=>t.textContent='',3000)}
+function armBtn(btn,label,fn){let a=false;btn.onclick=()=>{if(!a){a=true;btn.classList.add('arm');btn.textContent='한 번 더 누르면 실행';setTimeout(()=>{a=false;btn.classList.remove('arm');btn.textContent=label},3000);return}a=false;btn.classList.remove('arm');btn.textContent=label;fn()}}
+armBtn($('#rp-cpWeek'),'지난주 편성 복사',()=>{
+  weekDays().forEach(d=>{const s=peek(add(d,-7));if(!s){delete st.roster[d];return}
+    const c=JSON.parse(JSON.stringify(s));
+    for(const sh of SH)for(const k in c[sh]){const v=c[sh][k];if(v.L&&!active(v.L,d))v.L=null;v.M=(v.M||[]).map(n=>n&&active(n,d)?n:null)}
+    c.abs={휴가:[],병가:[],기타:[]};c.st={};st.roster[d]=c});
+  save();render();flash('지난주 라인 편성을 복사했습니다 (미출근·괄호는 비움)')});
+armBtn($('#rp-clrWeek'),'이번주 비우기',()=>{weekDays().forEach(d=>delete st.roster[d]);save();render()});
+const shiftMonth=(n)=>{const y=+cur.slice(0,4),m=+cur.slice(5,7)-1+n;return fd(new Date(y,m,1))};
+$('#rp-prev').onclick=()=>{cur=span==='m'?shiftMonth(-1):add(cur,-7);edit=null;needScroll=true;render()};
+$('#rp-next').onclick=()=>{cur=span==='m'?shiftMonth(1):add(cur,7);edit=null;needScroll=true;render()};
+root.querySelectorAll('#rp-spanSeg button').forEach(b=>b.onclick=()=>{span=b.dataset.s;root.querySelectorAll('#rp-spanSeg button').forEach(x=>x.classList.toggle('on',x===b));edit=null;needScroll=true;render()});
+$('#rp-dpick').onchange=e=>{if(e.target.value){cur=e.target.value;edit=null;needScroll=true;render()}};
+
+function renderAtt(days){
+  const mons=[...new Set(days.map(d=>add(d,-((wd(d)+6)%7))))];
+  const names=emps.filter(e=>days.some(d=>active(e.n,d))).sort((a,b)=>(isLead(b.n)-isLead(a.n))||a.j.localeCompare(b.j)).map(e=>e.n);
+  const rows=names.map(n=>{let nor=0,o15=0,o2=0,wk=0,ab={휴가:0,병가:0,기타:0};
+    days.forEach(d=>{const x=hrs(n,d);nor+=x.nor;o15+=x.o15;o2+=x.o2;if(x.sh)wk++;const P=placements(d)[n]||[];P.forEach(w=>{if(w.t==='a')ab[w.ab]+=(w.ab==='휴가'&&isHalf(peek(d),n))?0.5:1})});
+    const weeks=mons.map(m=>{let t=0;for(let i=0;i<7;i++){const x=hrs(n,add(m,i));t+=x.nor+x.o15+x.o2}return t});
+    return {n,nor,o15,o2,wk,ab,weeks}});
+  const tot=k=>rows.reduce((a,r)=>a+r[k],0);
+  const over=rows.filter(r=>r.weeks.some(t=>t>52)).length;
+  $('#rp-attSub').textContent=` · ${md(days[0])}~${md(days[days.length-1])} · 잔업 1.5배 ${fmtH(tot('o15'))}h · 2배 ${fmtH(tot('o2'))}h${over?` · 주52h 초과 ${over}명`:''}`;
+  $('#rp-attTab').innerHTML=`<thead><tr><th style="text-align:left">이름</th><th>출근일</th><th>정상(h)</th><th>잔업 1.5배(h)</th><th>잔업 2배(h)</th><th>합계(h)</th><th>휴가</th><th>병가</th><th>기타</th>${mons.map(m=>`<th>주 ${md(m)}~</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td class="nm">${esc(r.n)}</td><td class="dt">${r.wk}</td><td class="dt">${fmtH(r.nor)}</td><td class="dt">${r.o15?fmtH(r.o15):''}</td><td class="dt">${r.o2?fmtH(r.o2):''}</td><td class="dt"><b>${fmtH(r.nor+r.o15+r.o2)}</b></td><td class="dt">${r.ab['휴가']||''}</td><td class="dt">${r.ab['병가']||''}</td><td class="dt">${r.ab['기타']||''}</td>${r.weeks.map(t=>`<td class="dt ${t>52?'bad':''}">${t>52?'<b>':''}${fmtH(t)}${t>52?' ⚠</b>':''}</td>`).join('')}</tr>`).join('')}
+  <tr class="tot"><td class="nm">합계</td><td class="dt">${tot('wk')}</td><td class="dt">${fmtH(tot('nor'))}</td><td class="dt">${fmtH(tot('o15'))}</td><td class="dt">${fmtH(tot('o2'))}</td><td class="dt"><b>${fmtH(tot('nor')+tot('o15')+tot('o2'))}</b></td><td colspan="${3+mons.length}" class="dt" style="text-align:left">정상 8h(반차 4h, 특근일은 0 — 특근 시간은 OT/휴가에서 입력) · 주별 칸 = 그 주 월~일 합계 (52h 초과 시 빨간색)</td></tr></tbody>`;
+}
+function renderSkill(){
+  const cols=skillCols();const showAll=$('#rp-skAll').checked;
+  const list=emps.filter(e=>showAll||active(e.n,TODAY)).sort((a,b)=>(isLead(b.n)-isLead(a.n))||a.j.localeCompare(b.j));
+  $('#rp-skTab').innerHTML=`<thead><tr><th style="text-align:left">이름</th><th>입사일</th><th>퇴사일</th><th>조장</th>${cols.map(k=>`<th>${esc(k)}</th>`).join('')}</tr></thead><tbody>${list.map(e=>{const m=st.skill[e.n]||{};const L=isLead(e.n);
+    return `<tr class="${active(e.n,TODAY)?'':'q'}"><td class="nm">${esc(e.n)}</td><td class="dt">${e.j}</td><td class="dt">${e.q||''}</td><td><input type="checkbox" data-ld="${esc(e.n)}" ${L?'checked':''}></td>${cols.map(k=>{const v=L?5:(m[k]||0);return `<td><span class="skc k${v}${L?' dis':''}" data-sn="${esc(e.n)}" data-sk="${esc(k)}">${L?'조장':(v||'–')}</span></td>`}).join('')}</tr>`}).join('')}</tbody>`;
+}
+$('#rp-skAll').onchange=renderSkill;
+$('#rp-skTab').addEventListener('click',e=>{const c=e.target.closest('.skc');if(!c||c.classList.contains('dis'))return;const n=c.dataset.sn,k=c.dataset.sk;
+  const m=st.skill[n]=st.skill[n]||{};m[k]=((m[k]||0)+1)%5;save();render()});
+$('#rp-skTab').addEventListener('change',e=>{const n=e.target.dataset.ld;if(!n)return;if(e.target.checked)st.lead[n]=true;else delete st.lead[n];save();render()});
+function renderCfg(){
+  $('#rp-cfgBody').innerHTML=SH.map(sh=>`<div><table class="ctab"><thead><tr><th>${sh} 라인</th><th>조장</th><th>필요 인원</th><th>스킬 기준</th><th></th></tr></thead><tbody>${st.cfg[sh].map((c,i)=>`
+   <tr><td><input type="text" data-sh="${sh}" data-i="${i}" data-f="k" value="${esc(c.k)}"></td>
+   <td><input type="checkbox" data-sh="${sh}" data-i="${i}" data-f="lead" ${c.lead?'checked':''}></td>
+   <td><input type="number" min="0" max="20" data-sh="${sh}" data-i="${i}" data-f="n" value="${c.n}"></td>
+   <td><select data-sh="${sh}" data-i="${i}" data-f="sk">${[['','자기 라인 스킬'],['*','최고 스킬'],...st.cfg['주간'].filter(x=>x.k!==c.k).map(x=>[x.k,x.k+' 스킬'])].map(([j,t])=>`<option value="${esc(j)}"${j===(c.sk??'')?' selected':''}>${esc(t)}</option>`).join('')}</select></td>
+   <td><button class="xb" data-sh="${sh}" data-i="${i}" aria-label="라인 삭제">×</button></td></tr>`).join('')}
+   </tbody></table><div style="margin-top:6px"><button class="add" data-sh="${sh}">＋ 라인 추가</button></div></div>`).join('')+
+   `<div style="grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center" class="help"><b>OT 시간 버튼</b>
+     ${st.otPresets.map((v,i)=>`<input class="otin" data-pi="${i}" type="number" step="0.5" min="0" value="${v}">`).join('')} h
+     <span>OT/휴가 화면의 빠른 입력 버튼 (기본 0.5 · 2.5 · 8)</span></div>
+   <div class="help" style="grid-column:1/-1">라인·슬롯 구성은 공유저장소에 같이 저장돼 모든 PC가 같은 구성을 씁니다.</div>`;
+  const b=$('#rp-cfgBody');
+  b.querySelectorAll('[data-f]').forEach(el=>el.onchange=()=>{const c=st.cfg[el.dataset.sh][+el.dataset.i];const f=el.dataset.f;if(f==='k'){const nk=el.value.trim()||c.k;if(nk!==c.k){for(const n in st.skill){const m=st.skill[n];if(c.k in m){m[nk]=m[c.k];delete m[c.k]}}
+    for(const d in st.roster){const r=st.roster[d][el.dataset.sh];if(r&&r[c.k]){r[nk]=r[c.k];delete r[c.k]}}c.k=nk}}
+  else c[f]=f==='lead'?el.checked:f==='sk'?el.value:+el.value;save();render()});
+  b.querySelectorAll('.otin').forEach(el=>el.onchange=()=>{st.otPresets[+el.dataset.pi]=Math.max(0,+el.value||0);save();render()});
+  b.querySelectorAll('.xb').forEach(el=>el.onclick=()=>{st.cfg[el.dataset.sh].splice(+el.dataset.i,1);save();render()});
+  b.querySelectorAll('.add').forEach(el=>el.onclick=()=>{st.cfg[el.dataset.sh].push({k:'새 라인'+(st.cfg[el.dataset.sh].length+1),lead:false,n:2,sk:''});save();render()});
+}
+/* ---------- OT/휴가 ---------- */
+let view='roster',otFocus=null;
+const VTYPES=['연차','오전반차','오후반차','병가','무급','대체','경조','기타'];
+function vacOf(d,n){const r=peek(d);if(!r)return '';const c=r.st?.[n];if(c===2)return '오전반차';if(c===3)return '오후반차';
+  if((r.abs?.['병가']||[]).some(a=>a.n===n))return '병가';
+  const h=(r.abs?.['휴가']||[]).find(a=>a.n===n);if(h)return VTYPES.includes(h.r)?h.r:'연차';
+  if((r.abs?.['기타']||[]).some(a=>a.n===n))return '기타';return ''}
+function setVac(d,n,v){const r=day(d);
+  for(const k of ABK)r.abs[k]=r.abs[k].filter(a=>a.n!==n);delete r.st[n];
+  if(!v)return;
+  if(v==='오전반차'||v==='오후반차'){r.st[n]=v==='오전반차'?2:3;r.abs['휴가'].push({n,r:v,auto:1});return}
+  removeName(r,n);
+  if(v==='병가')r.abs['병가'].push({n,r:''});else if(v==='기타')r.abs['기타'].push({n,r:''});else r.abs['휴가'].push({n,r:v});
+}
+function otWarn(d){const out=[];const o=st.otx[d]||{};const r=peek(d);
+  for(const n in o){if(!(o[n].h>0))continue;
+    if(!active(n,d)){out.push(`${n} 재직기간 밖인데 잔업`);continue}
+    const v=vacOf(d,n);const c=r?.st?.[n]||0;
+    if(c===1)out.push(`${n} (잔업불가)인데 잔업 ${fmtH(o[n].h)}h`);
+    else if(v&&v!=='오전반차')out.push(`${n} ${v}인데 잔업 ${fmtH(o[n].h)}h`);}
+  return out}
+function placeLabel(d,n,seq){const P=placements(d)[n]||[];const w=P.find(x=>x.t==='s');
+  if(w)return {t:(w.sh==='야간'?'야간':'주간 '+w.k)+(w.i==='L'?' 조장':''),o:seq.has(n)?seq.get(n):9999,sh:w.sh};
+  const a=P.find(x=>x.t==='a');if(a)return {t:a.ab,o:seq.has(n)?seq.get(n):9999,sh:null};
+  const e=E[n];return {t:isWork(d)?'미배치':'휴무',o:100000+(e?Date.parse(e.j)/864e5:99999),sh:null}}
+function rosterSeq(d){const r=peek(d);const m=new Map();let i=0;if(!r)return m;
+  for(const sh of SH)for(const c of st.cfg[sh]){const v=r[sh]?.[c.k];if(!v)continue;if(v.L&&!m.has(v.L))m.set(v.L,i++);(v.M||[]).forEach(n=>{if(n&&!m.has(n))m.set(n,i++)})}
+  for(const k of ABK)(r.abs?.[k]||[]).forEach(a=>{if(a.n&&!m.has(a.n))m.set(a.n,i++)});return m}
+function renderOT(){
+  const d=cur;$('#rp-otDay').textContent=`${md(d)} (${WD[wd(d)]})${HOL[d]?' '+HOL[d]:''} · ${dtype(d)}`;$('#rp-otPick').value=d;
+  const o=st.otx[d]||{};
+  const names=activeList(d).concat(Object.keys(o).filter(n=>!active(n,d)));
+  const seq=rosterSeq(d);const rows=names.map(n=>({n,pl:placeLabel(d,n,seq)})).sort((a,b)=>a.pl.o-b.pl.o);
+  let c15=0,h15=0,c2=0,h2=0;for(const n in o)if(o[n].h>0){if(o[n].k===2){c2++;h2+=o[n].h}else{c15++;h15+=o[n].h}}
+  $('#rp-otSum').innerHTML=`<span>재직 <b class="num">${activeList(d).length}</b>명</span><span>잔업 1.5배 <b class="num">${c15}</b>명 · <b class="num">${fmtH(h15)}</b>h</span><span>2배 <b class="num">${c2}</b>명 · <b class="num">${fmtH(h2)}</b>h</span>`;
+  const warn=new Map(otWarn(d).map(w=>[w.split(' ')[0],w]));
+  $('#rp-otTab').innerHTML=`<thead><tr><th>#</th><th style="text-align:left">이름</th><th style="text-align:left">근무인원편성</th><th>주야</th><th>잔업 구분</th><th>시간 입력</th><th>잔업 시간(h)</th><th>휴가</th><th></th><th style="text-align:left">확인</th><th style="text-align:left">비고</th></tr></thead><tbody>${rows.map((x,i)=>{const n=x.n;const e=o[n]||{};const v=vacOf(d,n);const rr=peek(d);const c1=(rr?.st?.[n]||0)===1;const half=v==='오전반차'||v==='오후반차';const blk=otBlock(d,n);const dis=blk?'disabled':'';
+    return `<tr data-n="${esc(n)}" class="${v&&!half?'vac':''}${e.h>0?' has':''}${blk?' blk':''}"><td class="dt">${i+1}</td><td class="nm">${esc(n)}${isLead(n)?' <span class="help">조장</span>':''}</td><td class="pl"><b>${esc(x.pl.t)}</b></td>
+     <td>${SH.map(sh=>{const cs=e.sh||x.pl.sh;return `<button class="tb${cs===sh?(sh==='야간'?' onN':' on'):''}" data-sh="${sh}" title="${e.sh?'직접 지정':(x.pl.sh?'근무인원편성 기준':'')}">${sh}</button>`}).join('')}</td>
+     <td><button class="tb${c1?' onX':''}" data-nx="1" ${half?'disabled title="반차 인원은 휴가 칸에서 변경"':''}>잔업불가</button><button class="tb${e.k===1.5?' on':''}" data-k="1.5" ${dis}>1.5배</button><button class="tb${e.k===2?' on2':''}" data-k="2" ${dis}>2배</button></td>
+     <td>${st.otPresets.map(p=>`<button class="tb${e.h===p?(e.k===2?' on2':' on'):''}" data-p="${p}" ${dis}>${fmtH(p)}</button>`).join('')}</td>
+     <td><input class="hh" type="number" step="0.5" min="0" max="16" value="${e.h>0?e.h:''}" placeholder="${blk?'불가':'-'}" ${dis}></td>
+     <td><select data-v="1"><option value="">-</option>${VTYPES.map(t=>`<option${t===v?' selected':''}>${t}</option>`).join('')}</select></td>
+     <td><button class="x2b xb" title="잔업 지우기">×</button></td><td class="wn">${warn.has(n)?esc(warn.get(n)):(blk?`<span class="help">${esc(blk)} — 잔업 입력 불가</span>`:'')}</td><td><input class="memo" type="text" value="${esc(e.memo||'')}" placeholder=""></td></tr>`}).join('')}</tbody>`;
+  if(otFocus){const tr=[...root.querySelectorAll('#rp-otTab tr[data-n]')].find(t=>t.dataset.n===otFocus);if(tr){tr.scrollIntoView({block:'center'});tr.querySelector('input.hh').focus()}otFocus=null}
+}
+const OTB=$('#rp-otTab');
+const otEnt=(d,n)=>{const m=st.otx[d]=st.otx[d]||{};return m[n]=m[n]||{}};
+const otClean=(d,n)=>{const m=st.otx[d];if(!m||!m[n])return;if(!m[n].k&&!(m[n].h>0)&&!m[n].sh&&!m[n].memo)delete m[n];if(!Object.keys(m).length)delete st.otx[d]};
+OTB.addEventListener('click',e=>{const tr=e.target.closest('tr[data-n]');if(!tr)return;const n=tr.dataset.n,d=cur;
+  const kb=e.target.closest('[data-k]'),pb=e.target.closest('[data-p]'),xb=e.target.closest('.x2b'),sb=e.target.closest('button[data-sh]');
+  const nx=e.target.closest('[data-nx]');
+  if(nx){const r=day(d);if((r.st[n]||0)===1)delete r.st[n];else r.st[n]=1}
+  else if(sb){const o=otEnt(d,n);const plsh=placeLabel(d,n,new Map()).sh;const v=sb.dataset.sh;if(o.sh===v||(!o.sh&&plsh===v&&false))delete o.sh;else if(v===plsh)delete o.sh;else o.sh=v;otClean(d,n)}
+  else if(kb){const k=+kb.dataset.k;const o=otEnt(d,n);if(o.k===k){delete o.k;delete o.h;otClean(d,n)}else o.k=k}
+  else if(pb){const o=otEnt(d,n);o.h=+pb.dataset.p;if(!o.k)o.k=1.5}
+  else if(xb){const m=st.otx[d];if(m&&m[n]){delete m[n].k;delete m[n].h;otClean(d,n)}}
+  else return;
+  save();renderAll();
+});
+OTB.addEventListener('change',e=>{const tr=e.target.closest('tr[data-n]');if(!tr)return;const n=tr.dataset.n,d=cur;
+  if(e.target.classList.contains('hh')){const o=otEnt(d,n);if(e.target.value===''){delete o.h}else{o.h=Math.max(0,+e.target.value);if(!o.k)o.k=1.5}otClean(d,n)}
+  else if(e.target.dataset.v){setVac(d,n,e.target.value)}
+  else if(e.target.classList.contains('memo')){const o=otEnt(d,n);const v=e.target.value.trim();if(v)o.memo=v;else delete o.memo;otClean(d,n)}
+  save();renderAll();
+});
+OTB.addEventListener('keydown',e=>{const c=e.target.classList.contains('hh')?'hh':e.target.classList.contains('memo')?'memo':null;if(e.key==='Enter'&&c){const tr=e.target.closest('tr');const nn=tr&&tr.nextElementSibling&&tr.nextElementSibling.dataset.n;e.target.blur();if(nn){const i=root.querySelector(`#rp-otTab tr[data-n="${CSS.escape(nn)}"] input.${c}`);if(i)i.focus()}}});
+$('#rp-otPrev').onclick=()=>{cur=add(cur,-1);renderAll()};
+$('#rp-otNext').onclick=()=>{cur=add(cur,1);renderAll()};
+$('#rp-otPick').onchange=e=>{if(e.target.value){cur=e.target.value;renderAll()}};
+$('#rp-otCopy').onclick=()=>{let p=add(cur,-1);for(let i=0;i<10&&!st.otx[p];i++)p=add(p,-1);
+  if(!st.otx[p]){flash('복사할 이전 OT 입력이 없습니다');return}
+  const o=JSON.parse(JSON.stringify(st.otx[p]));for(const n in o){delete o[n].memo;if(!active(n,cur)||!Object.keys(o[n]).length)delete o[n]}st.otx[cur]=o;save();renderAll();flash(`${md(p)} OT를 ${md(cur)}로 복사했습니다`)};
+function setView(v){if(v!==view&&API&&API.onView){API.onView(v);return}applyView(v)}
+function applyView(v){view=v;
+  root.querySelectorAll('.rosterOnly').forEach(el=>el.hidden=v!=='roster');$('#rp-otView').hidden=v!=='ot';
+  root.querySelectorAll('.wonly').forEach(b=>b.hidden=v!=='roster'||span==='m');
+  needScroll=true;renderAll()}
+function renderAll(){render();if(view==='ot')renderOT()}
+
+
+/* ---------- 기존 데이터(lineAssignments·slotStatus·otVacationData) → 새 형식 ---------- */
+function migrateLegacy(base,a){
+  const L=a.legacy||{};const idName={};(a.allEmployees||[]).forEach(e=>{idName[String(e.id)]=e.name});
+  const nm=id=>id==null?null:(idName[String(id)]||null);
+  const mapProc=p=>SEC==='TCP'&&p==='Pack'?'Disk Pack':p;
+  const ensureLine=(sh,k,cnt)=>{let c=base.cfg[sh].find(x=>x.k===k);if(!c){c={k,lead:false,n:Math.max(2,cnt),sk:''};base.cfg[sh].push(c)}return c};
+  const vals=o=>Object.keys(o||{}).sort((x,y)=>+x-+y).map(k=>o[k]);
+  const LA=L.lineAssignments||{};
+  for(const d in LA){const sd=LA[d]&&LA[d][SEC];if(!sd)continue;
+    const r={주간:{},야간:{},abs:{휴가:[],병가:[],기타:[]},st:{}};
+    // 주간
+    const dsh=sd['주간']||{};
+    for(const p in dsh){if(p==='조장')continue;const names=vals(dsh[p]).map(nm).filter(Boolean);if(!names.length)continue;const k=mapProc(p);ensureLine('주간',k,names.length);(r.주간[k]=r.주간[k]||{L:null,M:[]}).M.push(...names)}
+    let leads=vals(dsh['조장']).map(nm).filter(Boolean);
+    if(leads.length){const lj=base.cfg['주간'].find(x=>x.k==='조장');
+      if(lj){(r.주간['조장']=r.주간['조장']||{L:null,M:[]}).M.push(...leads);leads=[]}
+      else for(const c of base.cfg['주간']){if(!leads.length)break;if(!c.lead)continue;const v=(r.주간[c.k]=r.주간[c.k]||{L:null,M:[]});if(!v.L)v.L=leads.shift()}
+      if(leads.length){const c=base.cfg['주간'][0];(r.주간[c.k]=r.주간[c.k]||{L:null,M:[]}).M.unshift(...leads)}}
+    // 야간 → 한 묶음
+    const nsh=sd['야간']||{};const nl=vals(nsh['조장']).map(nm).filter(Boolean);const nm2=[];
+    for(const p in nsh){if(p==='조장')continue;vals(nsh[p]).map(nm).filter(Boolean).forEach(x=>nm2.push(x))}
+    if(nl.length||nm2.length){const k=base.cfg['야간'][0].k;r.야간[k]={L:nl[0]||null,M:nl.slice(1).concat(nm2)}}
+    // 휴가
+    vals(sd['휴가']).map(nm).filter(Boolean).forEach(n=>{const ar=(L.absenceReasons||{})[`${d}_${SEC}_${n}`];r.abs.휴가.push({n,r:ar&&ar.reason&&ar.reason!=='휴가'?ar.reason:''})});
+    base.roster[d]=r;
+  }
+  // 괄호 상태 (0 잔업가능, 1 잔업불가, 2 오후반차, 3 오전반차)
+  const SS=L.slotStatus||{};
+  for(const key in SS){const v=+SS[key];if(!v)continue;const p=key.split('_');if(p.length<5||p[1]!==SEC)continue;
+    const [d,,sh,proc,idx]=p;const id=LA[d]?.[SEC]?.[sh]?.[proc]?.[idx];const n=nm(id);if(!n||!base.roster[d])continue;
+    const code=v===1?1:v===2?3:v===3?2:0;if(!code)continue;base.roster[d].st[n]=code;
+    if(code>=2){const h=base.roster[d].abs.휴가;if(!h.some(x=>x.n===n))h.push({n,r:code===2?'오전반차':'오후반차',auto:1})}}
+  // OT/휴가
+  const OV=L.otVacationData||{};const mine=new Set(emps.map(e=>e.n));
+  for(const d in OV){const m=OV[d]||{};for(const n in m){if(!mine.has(n))continue;const x=m[n]||{};
+      const r=base.roster[d]||(base.roster[d]={주간:{},야간:{},abs:{휴가:[],병가:[],기타:[]},st:{}});
+      if(x.type==='special')base.dt[d]='특근';
+      if(x.type==='vacation'){let v=x.vacation||'연차';if(v==='반차')v='오전반차';
+        if(v==='오전반차'||v==='오후반차'){r.st[n]=v==='오전반차'?2:3;if(!r.abs.휴가.some(y=>y.n===n))r.abs.휴가.push({n,r:v,auto:1})}
+        else{for(const sh of SH)for(const k in r[sh]){const q=r[sh][k];if(q.L===n)q.L=null;q.M=q.M.filter(y=>y!==n)}
+          if(v==='병가')r.abs.병가.push({n,r:''});else if(!r.abs.휴가.some(y=>y.n===n))r.abs.휴가.push({n,r:v==='연차'?'':v})}}
+      const h15=+x.ot15||+x.ot||0,h2=+x.ot20||0;const o={};
+      if(h15>0){o.k=1.5;o.h=h15;if(h2>0)o.memo=`2배 ${h2}h`}else if(h2>0){o.k=2;o.h=h2}
+      if(x.shift==='야간')o.sh='야간';
+      if(Object.keys(o).length)((base.otx[d]=base.otx[d]||{})[n]=o)}}
+  return base;
+}
+function defaults(){return {cfg:clone(DEF_CFGS[SEC]||DEF_CFGS.TCP),roster:{},need:SEC==='TCP'?21:0,dt:{},otx:{},otPresets:[0.5,2.5,8],v:2}}
+let migratedFor=null,migrated=null;
+function update(a){
+  const prevView=view;API=a;SEC=a.section||'TCP';
+  root.classList.toggle('rp-fe',SEC==='FE');
+  let changed=false;
+  if(a.employees!==lastEmps){lastEmps=a.employees;changed=true;
+    const by={};(a.employees||[]).filter(e=>String(e.section||'').toUpperCase()===SEC).forEach(e=>{const n=String(e.name||'').trim();if(!n)return;
+      const j=e.joinDate||'1900-01-01',q=e.leaveDate||null,lead=e.role==='조장';
+      const o=by[n];if(!o)by[n]={n,j,q,lead};else{o.j=j<o.j?j:o.j;o.q=(o.q===null||q===null)?null:(q>o.q?q:o.q);o.lead=o.lead||lead}});
+    emps=Object.values(by).sort((x,y)=>x.j.localeCompare(y.j));E=Object.fromEntries(emps.map(e=>[e.n,e]));}
+  const L0=a.legacy||{};const legChanged=!a.data&&(!migratedFor||[SEC,L0.lineAssignments,L0.slotStatus,L0.otVacationData,a.employees].some((x,i)=>x!==migratedFor[i]));
+  if(!st||a.data!==lastData||legChanged){
+    if(a.data&&a.data.v){st=clone(a.data);lastData=a.data}
+    else{const L=a.legacy||{};const key=[SEC,L.lineAssignments,L.slotStatus,L.otVacationData,a.employees];if(!migrated||!migratedFor||key.some((x,i)=>x!==migratedFor[i])){migrated=migrateLegacy(defaults(),a);migratedFor=key}st=clone(migrated);lastData=a.data||null}
+    st.skill=st.skill||{};changed=true}
+  for(const k of ['cfg','roster','dt','otx'])st[k]=st[k]||(k==='cfg'?clone(DEF_CFGS[SEC]):{});
+  if(!st.otPresets)st.otPresets=[0.5,2.5,8];
+  if(a.skill!==lastSkill||changed){lastSkill=a.skill;st.skill=clone(a.skill||{});lastSkillJson=JSON.stringify(st.skill);changed=true}
+  st.lead=Object.fromEntries(emps.filter(e=>e.lead).map(e=>[e.n,true]));lastLeadJson=JSON.stringify(st.lead);
+  const v=a.view||'roster';
+  if(v!==prevView||!booted){booted=true;applyView(v)}else if(changed)renderAll();
+}
+let booted=false;
+
+return {update:update,destroy:function(){root.innerHTML=''}};
+}
+return {create:create};
+})();
+
+  </script>
+  <script>
 const {
   useState,
   useMemo,
   useEffect,
   useCallback
 } = React;
+// V076: 근무인원편성 · OT/휴가 (새 화면) — 화면은 MfgRoster 모듈이 그리고 데이터는 앱 상태(rosterV2)에 저장
+function RosterHost(props) {
+  const ref = React.useRef(null);
+  const inst = React.useRef(null);
+  React.useEffect(() => {
+    inst.current = window.MfgRoster.create(ref.current);
+    return () => { if (inst.current) inst.current.destroy(); inst.current = null; };
+  }, []);
+  React.useEffect(() => { if (inst.current) inst.current.update(props); });
+  return React.createElement("div", { ref });
+}
 async function __gzipToB64(obj) {
   const json = JSON.stringify(obj);
   const cs = new CompressionStream('gzip');
@@ -1134,6 +1643,7 @@ function MFGProductionApp() {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [draggedEmployee, setDraggedEmployee] = useState(null);
   const [absenceReasons, setAbsenceReasons] = useState({});
+  const [rosterV2, setRosterV2] = useState({});
   const [lotData, setLotData] = useState({});
   const [lotHiddenBoms, setLotHiddenBoms] = useState({});
   const [expandedLotLogId, setExpandedLotLogId] = useState(null);
@@ -1221,7 +1731,8 @@ function MFGProductionApp() {
       absenceReasons,
       lotData,
       lotHiddenBoms,
-      otVacationData
+      otVacationData,
+      rosterV2
     };
     const jsonStr = JSON.stringify(dataToMeasure);
     const bytes = new Blob([jsonStr]).size;
@@ -1238,7 +1749,7 @@ function MFGProductionApp() {
       percent: usagePercent,
       bytes
     };
-  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData]);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, rosterV2]);
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -1288,6 +1799,7 @@ function MFGProductionApp() {
           setLotData(savedData.lotData || {});
           setLotHiddenBoms(savedData.lotHiddenBoms || {});
           setOtVacationData(savedData.otVacationData || {});
+          setRosterV2(savedData.rosterV2 || {});
           console.log('✅ 데이터 로드 완료');
         }
       } catch (err) {
@@ -1374,6 +1886,7 @@ function MFGProductionApp() {
         setLotData(data.lotData || {});
         setLotHiddenBoms(data.lotHiddenBoms || {});
         setOtVacationData(data.otVacationData || {});
+          setRosterV2(data.rosterV2 || {});
         setFormError('✅ 자동 적용');
       } catch (err) {
         console.warn('Drive 자동 로드 스킵:', err);
@@ -1397,7 +1910,8 @@ function MFGProductionApp() {
         skillData,
         absenceReasons,
         lotData,
-        otVacationData
+        otVacationData,
+        rosterV2
       };
       const success = await saveToIndexedDB('mfgAppData', {
         ...dataToSave,
@@ -1411,7 +1925,7 @@ function MFGProductionApp() {
     };
     const timer = setTimeout(saveData, 500);
     return () => clearTimeout(timer);
-  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, isLoading]);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, rosterV2, isLoading]);
   const driveAutoBackupRef = React.useRef(false);
   useEffect(() => {
     if (isLoading) return;
@@ -1436,6 +1950,7 @@ function MFGProductionApp() {
           absenceReasons,
           lotData,
           otVacationData,
+          rosterV2,
           savedAt: Date.now()
         };
         const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
@@ -1465,7 +1980,7 @@ function MFGProductionApp() {
       }
     }, 30000);
     return () => clearTimeout(timer);
-  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, isLoading]);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, rosterV2, isLoading]);
   const addEmployee = () => {
     if (!newEmployeeName.trim()) {
       setFormError('이름을 입력해주세요.');
@@ -3740,7 +4255,7 @@ function MFGProductionApp() {
       className: "text-gray-500"
     }, "데이터를 불러오는 중... ", React.createElement("span", {
       className: "text-xs font-mono text-gray-400"
-    }, "V075"))));
+    }, "V076"))));
   }
   return React.createElement("div", {
     className: "w-full h-screen bg-gray-100 flex flex-col",
@@ -3788,7 +4303,7 @@ function MFGProductionApp() {
     className: "text-2xl font-bold"
   }, "TCP 생산관리 시스템"), React.createElement("span", {
     className: "ml-2 px-2 py-0.5 bg-white/20 rounded text-xs font-mono font-bold align-middle"
-  }, "V075")), React.createElement("div", {
+  }, "V076")), React.createElement("div", {
     className: "text-right"
   }, React.createElement("div", {
     className: "text-sm opacity-80"
@@ -3827,6 +4342,7 @@ function MFGProductionApp() {
         absenceReasons,
         lotData,
         otVacationData,
+        rosterV2,
         savedAt: now.toISOString()
       };
       const jsonStr = JSON.stringify(dataToSave, null, 2);
@@ -3967,6 +4483,8 @@ function MFGProductionApp() {
           setAbsenceReasons(data.absenceReasons || {});
           setLotData(data.lotData || {});
           setLotHiddenBoms(data.lotHiddenBoms || {});
+          setOtVacationData(data.otVacationData || {});
+          setRosterV2(data.rosterV2 || {});
           var savedInfo = data.savedAt ? '\n저장 시간: ' + new Date(data.savedAt).toLocaleString() : '';
           setFormError('✅ 데이터를 불러왔습니다!' + savedInfo);
         } catch (err) {
@@ -11350,1137 +11868,19 @@ function MFGProductionApp() {
   }), employees.filter(emp => emp.section === personnelSection).filter(emp => showResigned || !emp.leaveDate).length === 0 && React.createElement("tr", null, React.createElement("td", {
     colSpan: "8",
     className: "px-4 py-8 text-center text-gray-400"
-  }, "등록된 직원이 없습니다."))))))), personnelSubTab === 'assign' && (() => {
-    const tcpProcesses = [{
-      name: '1PC',
-      slots: 4
-    }, {
-      name: '2PC',
-      slots: 5
-    }, {
-      name: 'Nospin',
-      slots: 1
-    }, {
-      name: 'Pack',
-      slots: 2
-    }, {
-      name: '세척',
-      slots: 2
-    }];
-    const feProcesses = [{
-      name: 'LVS',
-      slots: 2
-    }, {
-      name: 'A/FLVV',
-      slots: 2
-    }, {
-      name: 'M/FLVV',
-      slots: 3
-    }, {
-      name: 'A/GVV',
-      slots: 2
-    }, {
-      name: 'M/GVV',
-      slots: 4
-    }, {
-      name: 'UCC',
-      slots: 3
-    }, {
-      name: 'FTIV',
-      slots: 4
-    }, {
-      name: 'ICV',
-      slots: 6
-    }, {
-      name: 'ES',
-      slots: 2
-    }, {
-      name: 'Sub',
-      slots: 2
-    }];
-    const processes = personnelSection === 'TCP' ? tcpProcesses : feProcesses;
-    const leaderSlots = 3;
-    const vacationSlots = 10;
-    const getDatesForWeeks = (startDate, weeks = 2) => {
-      const dates = [];
-      const start = new Date(startDate);
-      for (let i = 0; i < weeks * 7; i++) {
-        const date = new Date(start);
-        date.setDate(start.getDate() + i);
-        dates.push(date.toISOString().split('T')[0]);
-      }
-      return dates;
-    };
-    const dates = getDatesForWeeks(assignStartDate, 2);
-    const formatDate = dateStr => {
-      const date = new Date(dateStr);
-      const month = date.getMonth() + 1;
-      const day = date.getDate();
-      const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-      const dayName = dayNames[date.getDay()];
-      return {
-        display: `${month}/${day}(${dayName})`,
-        isWeekend: date.getDay() === 0 || date.getDay() === 6,
-        isSunday: date.getDay() === 0
-      };
-    };
-    const getSlotData = (date, shift, process, slotIndex) => {
-      return lineAssignments[date]?.[personnelSection]?.[shift]?.[process]?.[slotIndex] || null;
-    };
-    const setSlotData = (date, shift, process, slotIndex, empId) => {
-      setLineAssignments(prev => {
-        const newData = {
-          ...prev
-        };
-        if (!newData[date]) newData[date] = {};
-        if (!newData[date][personnelSection]) newData[date][personnelSection] = {};
-        if (!newData[date][personnelSection][shift]) newData[date][personnelSection][shift] = {};
-        if (!newData[date][personnelSection][shift][process]) newData[date][personnelSection][shift][process] = {};
-        newData[date][personnelSection][shift][process][slotIndex] = empId;
-        return newData;
-      });
-    };
-    const getVacationSlot = (date, slotIndex) => {
-      return lineAssignments[date]?.[personnelSection]?.['휴가']?.[slotIndex] || null;
-    };
-    const setVacationSlot = (date, slotIndex, empId) => {
-      setLineAssignments(prev => {
-        const newData = {
-          ...prev
-        };
-        if (!newData[date]) newData[date] = {};
-        if (!newData[date][personnelSection]) newData[date][personnelSection] = {};
-        if (!newData[date][personnelSection]['휴가']) newData[date][personnelSection]['휴가'] = {};
-        newData[date][personnelSection]['휴가'][slotIndex] = empId;
-        return newData;
-      });
-    };
-    const getLeaderSlot = (date, shift, slotIndex) => {
-      return lineAssignments[date]?.[personnelSection]?.[shift]?.['조장']?.[slotIndex] || null;
-    };
-    const setLeaderSlot = (date, shift, slotIndex, empId) => {
-      setLineAssignments(prev => {
-        const newData = {
-          ...prev
-        };
-        if (!newData[date]) newData[date] = {};
-        if (!newData[date][personnelSection]) newData[date][personnelSection] = {};
-        if (!newData[date][personnelSection][shift]) newData[date][personnelSection][shift] = {};
-        if (!newData[date][personnelSection][shift]['조장']) newData[date][personnelSection][shift]['조장'] = {};
-        newData[date][personnelSection][shift]['조장'][slotIndex] = empId;
-        return newData;
-      });
-    };
-    const getAssignedIds = date => {
-      const assigned = [];
-      const dayData = lineAssignments[date]?.[personnelSection];
-      if (dayData) {
-        ['주간', '야간'].forEach(shift => {
-          if (dayData[shift]) {
-            Object.values(dayData[shift]).forEach(slots => {
-              if (typeof slots === 'object') {
-                Object.values(slots).forEach(empId => {
-                  if (empId) assigned.push(empId);
-                });
-              }
-            });
-          }
-        });
-        if (dayData['휴가']) {
-          Object.values(dayData['휴가']).forEach(empId => {
-            if (empId) assigned.push(empId);
-          });
-        }
-      }
-      return assigned;
-    };
-    const activeEmps = employees.filter(emp => emp.section === personnelSection && !emp.leaveDate);
-    const moveWeek = direction => {
-      const current = new Date(assignStartDate);
-      current.setDate(current.getDate() + direction * 7);
-      setAssignStartDate(current.toISOString().split('T')[0]);
-    };
-    const copyFromPreviousDay = targetDate => {
-      const target = new Date(targetDate);
-      target.setDate(target.getDate() - 1);
-      const prevDate = target.toISOString().split('T')[0];
-      const prevData = lineAssignments[prevDate]?.[personnelSection];
-      if (!prevData) {
-        setFormError('전일 데이터가 없습니다.');
-        return;
-      }
-      setLineAssignments(prev => ({
-        ...prev,
-        [targetDate]: {
-          ...prev[targetDate],
-          [personnelSection]: JSON.parse(JSON.stringify(prevData))
-        }
-      }));
-      const newSlotStatus = {
-        ...slotStatus
-      };
-      Object.keys(slotStatus).forEach(key => {
-        if (key.startsWith(`${prevDate}_${personnelSection}_`)) {
-          const newKey = key.replace(`${prevDate}_`, `${targetDate}_`);
-          newSlotStatus[newKey] = slotStatus[key];
-        }
-      });
-      setSlotStatus(newSlotStatus);
-    };
-    const handleDragStart = (e, empId) => {
-      e.dataTransfer.setData('empId', empId.toString());
-      setDraggedEmployee(employees.find(emp => emp.id === empId));
-    };
-    const handleDragEnd = () => {
-      setDraggedEmployee(null);
-    };
-    const handleDrop = (e, date, shift, process, slotIndex, maxSlots) => {
-      e.preventDefault();
-      const empId = parseInt(e.dataTransfer.getData('empId'));
-      if (empId) {
-        const dayData = lineAssignments[date]?.[personnelSection];
-        if (dayData) {
-          ['주간', '야간', '휴가'].forEach(s => {
-            if (dayData[s]) {
-              Object.keys(dayData[s]).forEach(p => {
-                if (dayData[s][p] && typeof dayData[s][p] === 'object') {
-                  Object.keys(dayData[s][p]).forEach(idx => {
-                    if (dayData[s][p][idx] === empId) {
-                      if (s === '휴가') {
-                        setVacationSlot(date, parseInt(idx), null);
-                      } else if (p === '조장') {
-                        setLeaderSlot(date, s, parseInt(idx), null);
-                      } else {
-                        setSlotData(date, s, p, parseInt(idx), null);
-                      }
-                    }
-                  });
-                }
-              });
-            }
-          });
-        }
-        let targetSlot = 0;
-        if (shift === '휴가') {
-          for (let i = 0; i < maxSlots; i++) {
-            if (!getVacationSlot(date, i)) {
-              targetSlot = i;
-              break;
-            }
-          }
-          setVacationSlot(date, targetSlot, empId);
-        } else if (process === '조장') {
-          for (let i = 0; i < maxSlots; i++) {
-            if (!getLeaderSlot(date, shift, i)) {
-              targetSlot = i;
-              break;
-            }
-          }
-          setLeaderSlot(date, shift, targetSlot, empId);
-        } else {
-          for (let i = 0; i < maxSlots; i++) {
-            if (!getSlotData(date, shift, process, i)) {
-              targetSlot = i;
-              break;
-            }
-          }
-          setSlotData(date, shift, process, targetSlot, empId);
-        }
-      }
-      setDraggedEmployee(null);
-    };
-    const removeFromSlot = (date, shift, process, slotIndex) => {
-      if (shift === '휴가') {
-        const slots = [];
-        for (let i = 0; i < vacationSlots; i++) {
-          const emp = getVacationSlot(date, i);
-          if (emp && i !== slotIndex) slots.push(emp);
-        }
-        setLineAssignments(prev => {
-          const newData = {
-            ...prev
-          };
-          if (!newData[date]) newData[date] = {};
-          if (!newData[date][personnelSection]) newData[date][personnelSection] = {};
-          if (!newData[date][personnelSection]['휴가']) newData[date][personnelSection]['휴가'] = {};
-          newData[date][personnelSection]['휴가'] = {};
-          slots.forEach((empId, idx) => {
-            newData[date][personnelSection]['휴가'][idx] = empId;
-          });
-          return newData;
-        });
-      } else if (process === '조장') {
-        const slots = [];
-        for (let i = 0; i < leaderSlots; i++) {
-          const emp = getLeaderSlot(date, shift, i);
-          if (emp && i !== slotIndex) slots.push(emp);
-        }
-        setLineAssignments(prev => {
-          const newData = {
-            ...prev
-          };
-          if (!newData[date]) newData[date] = {};
-          if (!newData[date][personnelSection]) newData[date][personnelSection] = {};
-          if (!newData[date][personnelSection][shift]) newData[date][personnelSection][shift] = {};
-          newData[date][personnelSection][shift]['조장'] = {};
-          slots.forEach((empId, idx) => {
-            newData[date][personnelSection][shift]['조장'][idx] = empId;
-          });
-          return newData;
-        });
-      } else {
-        const processInfo = processes.find(p => p.name === process);
-        const maxSlots = processInfo ? processInfo.slots : 4;
-        const slots = [];
-        for (let i = 0; i < maxSlots; i++) {
-          const emp = getSlotData(date, shift, process, i);
-          if (emp && i !== slotIndex) slots.push(emp);
-        }
-        setLineAssignments(prev => {
-          const newData = {
-            ...prev
-          };
-          if (!newData[date]) newData[date] = {};
-          if (!newData[date][personnelSection]) newData[date][personnelSection] = {};
-          if (!newData[date][personnelSection][shift]) newData[date][personnelSection][shift] = {};
-          newData[date][personnelSection][shift][process] = {};
-          slots.forEach((empId, idx) => {
-            newData[date][personnelSection][shift][process][idx] = empId;
-          });
-          return newData;
-        });
-      }
-      setSlotStatus(prev => {
-        const newStatus = {
-          ...prev
-        };
-        const prefix = `${date}_${personnelSection}_${shift}_${process}_`;
-        const statuses = [];
-        const maxSlots = process === '조장' ? leaderSlots : shift === '휴가' ? vacationSlots : processes.find(p => p.name === process)?.slots || 4;
-        for (let i = 0; i < maxSlots; i++) {
-          if (i !== slotIndex && prev[prefix + i]) {
-            statuses.push(prev[prefix + i]);
-          } else if (i !== slotIndex) {
-            statuses.push(0);
-          }
-        }
-        for (let i = 0; i < maxSlots; i++) {
-          delete newStatus[prefix + i];
-        }
-        statuses.forEach((status, idx) => {
-          if (status !== 0) newStatus[prefix + idx] = status;
-        });
-        return newStatus;
-      });
-    };
-    const handleSlotClick = (date, shift, process, maxSlots) => {
-      setSelectedSlot({
-        date,
-        shift,
-        process,
-        maxSlots
-      });
-    };
-    const handleEmployeeDoubleClick = (empId, date) => {
-      if (selectedSlot && selectedSlot.date === date) {
-        const {
-          shift,
-          process,
-          maxSlots
-        } = selectedSlot;
-        let targetSlot = -1;
-        if (shift === '휴가') {
-          for (let i = 0; i < maxSlots; i++) {
-            if (!getVacationSlot(date, i)) {
-              targetSlot = i;
-              break;
-            }
-          }
-          if (targetSlot >= 0) setVacationSlot(date, targetSlot, empId);
-        } else if (process === '조장') {
-          for (let i = 0; i < maxSlots; i++) {
-            if (!getLeaderSlot(date, shift, i)) {
-              targetSlot = i;
-              break;
-            }
-          }
-          if (targetSlot >= 0) setLeaderSlot(date, shift, targetSlot, empId);
-        } else {
-          for (let i = 0; i < maxSlots; i++) {
-            if (!getSlotData(date, shift, process, i)) {
-              targetSlot = i;
-              break;
-            }
-          }
-          if (targetSlot >= 0) setSlotData(date, shift, process, targetSlot, empId);
-        }
-      }
-    };
-    const getSlotStatus = (date, shift, process, slotIndex) => {
-      const key = `${date}_${personnelSection}_${shift}_${process}_${slotIndex}`;
-      return slotStatus[key] || 0;
-    };
-    const toggleSlotStatus = (date, shift, process, slotIndex) => {
-      const key = `${date}_${personnelSection}_${shift}_${process}_${slotIndex}`;
-      const current = slotStatus[key] || 0;
-      const next = (current + 1) % 4;
-      let empId;
-      if (process === '조장') {
-        empId = getLeaderSlot(date, shift, slotIndex);
-      } else {
-        empId = getSlotData(date, shift, process, slotIndex);
-      }
-      setSlotStatus(prev => ({
-        ...prev,
-        [key]: next
-      }));
-      if ((next === 2 || next === 3) && empId) {
-        const vacationData = lineAssignments[date]?.[personnelSection]?.['휴가'] || {};
-        const alreadyInVacation = Object.values(vacationData).includes(empId);
-        if (!alreadyInVacation) {
-          let newSlotIndex = 0;
-          while (vacationData[newSlotIndex]) {
-            newSlotIndex++;
-          }
-          setVacationSlot(date, newSlotIndex, empId);
-        }
-      }
-      if ((current === 2 || current === 3) && next === 0 && empId) {
-        setLineAssignments(prev => {
-          const newData = {
-            ...prev
-          };
-          const vacationData = newData[date]?.[personnelSection]?.['휴가'];
-          if (vacationData) {
-            const slotToRemove = Object.keys(vacationData).find(k => vacationData[k] === empId);
-            if (slotToRemove !== undefined) {
-              delete newData[date][personnelSection]['휴가'][slotToRemove];
-              const remaining = Object.values(newData[date][personnelSection]['휴가']).filter(Boolean);
-              newData[date][personnelSection]['휴가'] = {};
-              remaining.forEach((id, idx) => {
-                newData[date][personnelSection]['휴가'][idx] = id;
-              });
-            }
-          }
-          return newData;
-        });
-      }
-    };
-    const renderSlot = (date, shift, process, slotIndex, maxSlots) => {
-      let empId;
-      if (shift === '휴가') {
-        empId = getVacationSlot(date, slotIndex);
-      } else if (process === '조장') {
-        empId = getLeaderSlot(date, shift, slotIndex);
-      } else {
-        empId = getSlotData(date, shift, process, slotIndex);
-      }
-      const emp = empId ? employees.find(e => e.id === empId) : null;
-      const slotKey = `${date}_${shift}_${process}_${slotIndex}`;
-      let status = 0;
-      let halfDayType = null;
-      if (emp) {
-        if (shift === '휴가') {
-          const allSlotKeys = Object.keys(slotStatus);
-          for (const key of allSlotKeys) {
-            const keyStatus = slotStatus[key];
-            if (key.startsWith(`${date}_${personnelSection}_`) && (keyStatus === 2 || keyStatus === 3)) {
-              const parts = key.split('_');
-              const keyShift = parts[2];
-              const keyProcess = parts[3];
-              const keySlotIdx = parseInt(parts[4]);
-              if (keyShift !== '휴가') {
-                let slotEmpId;
-                if (keyProcess === '조장') {
-                  slotEmpId = getLeaderSlot(date, keyShift, keySlotIdx);
-                } else {
-                  slotEmpId = getSlotData(date, keyShift, keyProcess, keySlotIdx);
-                }
-                if (slotEmpId === empId) {
-                  halfDayType = keyStatus === 2 ? 'afternoon' : 'morning';
-                  status = keyStatus;
-                  break;
-                }
-              }
-            }
-          }
-        } else {
-          status = getSlotStatus(date, shift, process, slotIndex);
-        }
-      }
-      const getStatusBgClass = () => {
-        if (!emp) return '';
-        if (shift === '휴가') {
-          if (halfDayType) return 'border-orange-400 text-orange-800';
-          return 'bg-gray-200 border-gray-400 text-gray-700';
-        }
-        if (emp.role === '조장') {
-          if (status === 0) return 'bg-amber-100 border-amber-300 text-amber-800';
-          if (status === 1) return 'bg-red-200 border-red-400 text-red-800';
-          return 'border-red-400 text-red-800';
-        } else {
-          if (status === 0) return 'bg-green-100 border-green-300 text-green-800';
-          if (status === 1) return 'bg-red-200 border-red-400 text-red-800';
-          return 'border-red-400 text-red-800';
-        }
-      };
-      const assignedIds = getAssignedIds(date);
-      const availableEmps = activeEmps.filter(e => !assignedIds.includes(e.id));
-      const handleTextInput = inputValue => {
-        if (!inputValue.trim()) return;
-        const matchedEmp = activeEmps.find(e => e.name === inputValue.trim());
-        if (matchedEmp && !assignedIds.includes(matchedEmp.id)) {
-          if (shift === '휴가') {
-            setVacationSlot(date, slotIndex, matchedEmp.id);
-          } else if (process === '조장') {
-            setLeaderSlot(date, shift, slotIndex, matchedEmp.id);
-          } else {
-            setSlotData(date, shift, process, slotIndex, matchedEmp.id);
-          }
-        }
-      };
-      const handleSelectChange = selectedId => {
-        if (!selectedId) return;
-        if (shift === '휴가') {
-          setVacationSlot(date, slotIndex, selectedId);
-        } else if (process === '조장') {
-          setLeaderSlot(date, shift, slotIndex, selectedId);
-        } else {
-          setSlotData(date, shift, process, slotIndex, selectedId);
-        }
-      };
-      return React.createElement("div", {
-        key: slotIndex,
-        className: `border rounded px-1 py-0.5 min-h-[24px] text-xs transition-all relative overflow-hidden ${emp ? getStatusBgClass() : 'bg-gray-50 border-gray-200'}`,
-        onDragOver: e => e.preventDefault(),
-        onDrop: e => handleDrop(e, date, shift, process, slotIndex, maxSlots)
-      }, emp && status === 2 && React.createElement("div", {
-        className: `absolute inset-y-0 left-0 w-1/2 ${shift === '휴가' ? 'bg-orange-200' : 'bg-red-200'}`
-      }), emp && status === 3 && React.createElement("div", {
-        className: `absolute inset-y-0 right-0 w-1/2 ${shift === '휴가' ? 'bg-orange-200' : 'bg-red-200'}`
-      }), emp ? React.createElement("div", {
-        className: "flex items-center justify-between relative z-10 cursor-pointer",
-        onClick: () => shift !== '휴가' && toggleSlotStatus(date, shift, process, slotIndex)
-      }, React.createElement("span", {
-        className: "truncate font-medium"
-      }, emp.name, shift === '휴가' && halfDayType && React.createElement("span", {
-        className: "ml-1 text-orange-600"
-      }, "(", halfDayType === 'afternoon' ? '오후' : '오전', ")")), React.createElement("button", {
-        type: "button",
-        onClick: e => {
-          e.stopPropagation();
-          removeFromSlot(date, shift, process, slotIndex);
-        },
-        className: "text-gray-400 hover:text-red-600 ml-0.5"
-      }, "×")) : React.createElement("div", {
-        className: "relative group"
-      }, React.createElement("input", {
-        type: "text",
-        list: `emp-list-${slotKey}`,
-        placeholder: "-",
-        className: "w-full bg-transparent border-none outline-none text-xs text-center placeholder-gray-300 focus:placeholder-gray-400",
-        onBlur: e => handleTextInput(e.target.value),
-        onKeyDown: e => {
-          if (e.key === 'Enter') {
-            handleTextInput(e.target.value);
-            e.target.value = '';
-            e.target.blur();
-          }
-        },
-        onChange: e => {
-          const matchedEmp = availableEmps.find(emp => emp.name === e.target.value);
-          if (matchedEmp) {
-            handleSelectChange(matchedEmp.id);
-            e.target.value = '';
-          }
-        }
-      }), React.createElement("datalist", {
-        id: `emp-list-${slotKey}`
-      }, availableEmps.map(e => React.createElement("option", {
-        key: e.id,
-        value: e.name
-      })))));
-    };
-    return React.createElement(React.Fragment, null, React.createElement("div", {
-      className: "flex items-center justify-between mb-4"
-    }, React.createElement("div", {
-      className: "flex items-center gap-4"
-    }, React.createElement("div", {
-      className: "flex items-center gap-3 text-xs text-gray-600"
-    }, React.createElement("span", {
-      className: "flex items-center gap-1"
-    }, React.createElement("span", {
-      className: "w-5 h-5 rounded-full bg-green-200 border-2 border-green-400"
-    }), React.createElement("span", null, "잔업가능")), React.createElement("span", {
-      className: "flex items-center gap-1"
-    }, React.createElement("span", {
-      className: "w-5 h-5 rounded-full bg-red-200 border-2 border-red-400"
-    }), React.createElement("span", null, "잔업불가")), React.createElement("span", {
-      className: "flex items-center gap-1"
-    }, React.createElement("span", {
-      className: "w-5 h-5 rounded-full border-2 border-red-400 overflow-hidden flex"
-    }, React.createElement("span", {
-      className: "w-1/2 bg-red-200"
-    }), React.createElement("span", {
-      className: "w-1/2 bg-white"
-    })), React.createElement("span", null, "오후반차")), React.createElement("span", {
-      className: "flex items-center gap-1"
-    }, React.createElement("span", {
-      className: "w-5 h-5 rounded-full border-2 border-red-400 overflow-hidden flex"
-    }, React.createElement("span", {
-      className: "w-1/2 bg-white"
-    }), React.createElement("span", {
-      className: "w-1/2 bg-red-200"
-    })), React.createElement("span", null, "오전반차")))), React.createElement("div", {
-      className: "flex items-center gap-2"
-    }, React.createElement("button", {
-      type: "button",
-      onClick: () => moveWeek(-1),
-      className: "px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm"
-    }, "◀ 지난주"), React.createElement("span", {
-      className: "text-sm font-medium px-3"
-    }, formatDate(assignStartDate).display, " ~ ", formatDate(dates[dates.length - 1]).display), React.createElement("button", {
-      type: "button",
-      onClick: () => moveWeek(1),
-      className: "px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm"
-    }, "다음주 ▶"))), React.createElement("div", {
-      className: "overflow-x-auto border rounded-lg"
-    }, React.createElement("table", {
-      className: "border-collapse text-xs",
-      style: {
-        minWidth: '100%'
-      }
-    }, React.createElement("thead", null, React.createElement("tr", {
-      className: "bg-gray-100"
-    }, React.createElement("th", {
-      className: "border px-2 py-2 text-left font-semibold sticky left-0 bg-gray-100 z-20 w-16"
-    }, "구분"), React.createElement("th", {
-      className: "border px-2 py-2 text-left font-semibold sticky left-16 bg-gray-100 z-20 w-16"
-    }, "공정"), dates.map(date => {
-      const {
-        display,
-        isWeekend,
-        isSunday
-      } = formatDate(date);
-      return React.createElement("th", {
-        key: date,
-        className: `border px-1 py-2 text-center font-medium min-w-[100px] cursor-pointer select-none ${isSunday ? 'bg-red-100 text-red-700 hover:bg-red-200' : isWeekend ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-gray-100 hover:bg-gray-200'}`,
-        onDoubleClick: () => copyFromPreviousDay(date),
-        title: "더블클릭: 전일 데이터 복사"
-      }, display);
-    }))), React.createElement("tbody", null, React.createElement("tr", {
-      className: "bg-yellow-50"
-    }, React.createElement("td", {
-      colSpan: 2 + dates.length,
-      className: "border px-3 py-1 font-bold text-yellow-800 bg-yellow-100"
-    }, "☀️ 주간")), React.createElement("tr", {
-      className: "hover:bg-amber-50/50"
-    }, React.createElement("td", {
-      rowSpan: processes.length + 1,
-      className: "border px-2 py-1 text-center font-medium sticky left-0 bg-yellow-50 z-10 text-yellow-800"
-    }, "주간"), React.createElement("td", {
-      className: "border px-2 py-1 font-medium sticky left-16 bg-amber-50 z-10 text-amber-800"
-    }, "⭐ 조장"), dates.map(date => {
-      const {
-        isWeekend,
-        isSunday
-      } = formatDate(date);
-      return React.createElement("td", {
-        key: date,
-        className: `border px-1 py-1 align-top ${isSunday ? 'bg-red-50' : isWeekend ? 'bg-blue-50' : 'bg-amber-50/30'}`
-      }, React.createElement("div", {
-        className: "space-y-0.5"
-      }, Array.from({
-        length: leaderSlots
-      }, (_, i) => renderSlot(date, '주간', '조장', i, leaderSlots))));
-    })), processes.map((process, pIdx) => React.createElement("tr", {
-      key: `day-${process.name}`,
-      className: "hover:bg-yellow-50/50"
-    }, React.createElement("td", {
-      className: "border px-2 py-1 font-medium sticky left-16 bg-white z-10"
-    }, process.name), dates.map(date => {
-      const {
-        isWeekend,
-        isSunday
-      } = formatDate(date);
-      return React.createElement("td", {
-        key: date,
-        className: `border px-1 py-1 align-top ${isSunday ? 'bg-red-50' : isWeekend ? 'bg-blue-50' : ''}`
-      }, React.createElement("div", {
-        className: "space-y-0.5"
-      }, Array.from({
-        length: process.slots
-      }, (_, i) => renderSlot(date, '주간', process.name, i, process.slots))));
-    }))), React.createElement("tr", {
-      className: "bg-indigo-50"
-    }, React.createElement("td", {
-      colSpan: 2 + dates.length,
-      className: "border px-3 py-1 font-bold text-indigo-800 bg-indigo-100"
-    }, "🌙 야간")), React.createElement("tr", {
-      className: "hover:bg-amber-50/50"
-    }, React.createElement("td", {
-      rowSpan: processes.length + 1,
-      className: "border px-2 py-1 text-center font-medium sticky left-0 bg-indigo-50 z-10 text-indigo-800"
-    }, "야간"), React.createElement("td", {
-      className: "border px-2 py-1 font-medium sticky left-16 bg-amber-50 z-10 text-amber-800"
-    }, "⭐ 조장"), dates.map(date => {
-      const {
-        isWeekend,
-        isSunday
-      } = formatDate(date);
-      return React.createElement("td", {
-        key: date,
-        className: `border px-1 py-1 align-top ${isSunday ? 'bg-red-50' : isWeekend ? 'bg-blue-50' : 'bg-amber-50/30'}`
-      }, React.createElement("div", {
-        className: "space-y-0.5"
-      }, Array.from({
-        length: leaderSlots
-      }, (_, i) => renderSlot(date, '야간', '조장', i, leaderSlots))));
-    })), processes.map((process, pIdx) => React.createElement("tr", {
-      key: `night-${process.name}`,
-      className: "hover:bg-indigo-50/50"
-    }, React.createElement("td", {
-      className: "border px-2 py-1 font-medium sticky left-16 bg-white z-10"
-    }, process.name), dates.map(date => {
-      const {
-        isWeekend,
-        isSunday
-      } = formatDate(date);
-      return React.createElement("td", {
-        key: date,
-        className: `border px-1 py-1 align-top ${isSunday ? 'bg-red-50' : isWeekend ? 'bg-blue-50' : ''}`
-      }, React.createElement("div", {
-        className: "space-y-0.5"
-      }, Array.from({
-        length: process.slots
-      }, (_, i) => renderSlot(date, '야간', process.name, i, process.slots))));
-    }))), React.createElement("tr", {
-      className: "bg-gray-50"
-    }, React.createElement("td", {
-      colSpan: 2 + dates.length,
-      className: "border px-3 py-1 font-bold text-gray-700 bg-gray-200"
-    }, "🏖️ 휴가")), React.createElement("tr", null, React.createElement("td", {
-      colSpan: 2,
-      className: "border px-2 py-1 font-medium sticky left-0 bg-gray-50 z-10 text-gray-600"
-    }, "휴가자"), dates.map(date => {
-      const {
-        isWeekend,
-        isSunday
-      } = formatDate(date);
-      return React.createElement("td", {
-        key: date,
-        className: `border px-1 py-1 align-top ${isSunday ? 'bg-red-50' : isWeekend ? 'bg-blue-50' : ''}`
-      }, React.createElement("div", {
-        className: "space-y-0.5"
-      }, Array.from({
-        length: vacationSlots
-      }, (_, i) => renderSlot(date, '휴가', '휴가', i, vacationSlots))));
-    })), React.createElement("tr", {
-      className: "bg-orange-50"
-    }, React.createElement("td", {
-      colSpan: 2 + dates.length,
-      className: "border px-3 py-1 font-bold text-orange-800 bg-orange-100"
-    }, "📦 미배치 인원")), React.createElement("tr", null, React.createElement("td", {
-      colSpan: 2,
-      className: "border px-2 py-1 font-medium sticky left-0 bg-orange-50 z-10 text-orange-700"
-    }, "출근자"), dates.map(date => {
-      const assignedIds = getAssignedIds(date);
-      const unassigned = activeEmps.filter(emp => !assignedIds.includes(emp.id));
-      const {
-        isWeekend,
-        isSunday
-      } = formatDate(date);
-      return React.createElement("td", {
-        key: date,
-        className: `border px-1 py-1 align-top ${isSunday ? 'bg-red-50' : isWeekend ? 'bg-blue-50' : ''}`
-      }, React.createElement("div", {
-        className: "flex flex-wrap gap-0.5"
-      }, unassigned.map(emp => React.createElement("div", {
-        key: emp.id,
-        draggable: true,
-        onDragStart: e => handleDragStart(e, emp.id),
-        onDragEnd: handleDragEnd,
-        className: `px-1 py-0.5 rounded text-xs transition-all select-none cursor-move ${emp.role === '조장' ? 'bg-amber-200 text-amber-800 border border-amber-300' : 'bg-white text-gray-700 border border-gray-300'} ${draggedEmployee?.id === emp.id ? 'opacity-50' : ''} hover:shadow`,
-        title: "드래그하여 배치"
-      }, emp.name)), unassigned.length === 0 && React.createElement("span", {
-        className: "text-gray-400 text-xs"
-      }, "전원 배치됨")));
-    }))))), React.createElement("div", {
-      className: "mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-600"
-    }, React.createElement("span", {
-      className: "font-semibold text-gray-700"
-    }, "범례:"), React.createElement("span", {
-      className: "flex items-center gap-1"
-    }, React.createElement("span", {
-      className: "px-2 py-0.5 bg-amber-200 text-amber-800 rounded"
-    }, "조장")), React.createElement("span", {
-      className: "flex items-center gap-1"
-    }, React.createElement("span", {
-      className: "px-2 py-0.5 bg-green-100 text-green-800 rounded border border-green-300"
-    }, "작업자")), React.createElement("span", {
-      className: "flex items-center gap-1"
-    }, React.createElement("span", {
-      className: "px-2 py-0.5 bg-red-100 text-red-700 rounded"
-    }, "일요일")), React.createElement("span", {
-      className: "flex items-center gap-1"
-    }, React.createElement("span", {
-      className: "px-2 py-0.5 bg-blue-100 text-blue-700 rounded"
-    }, "토요일")), React.createElement("span", {
-      className: "border-l pl-4 ml-2"
-    }, React.createElement("span", {
-      className: "font-semibold text-gray-700"
-    }, "사용법:"), React.createElement("span", {
-      className: "ml-2"
-    }, "빈 칸 클릭 → 이름 입력 또는 목록 선택"))));
-  })(), personnelSubTab === 'otvac' && (() => {
-    const VACATION_TYPES = ['연차', '반차', '병가', '무급', '대체', '경조'];
-    const tcpEmployees = employees.filter(e => (e.section === 'TCP' || (e.section || '').toUpperCase() === 'TCP') && !e.leaveDate);
-    const sectionCounts = {};
-    employees.forEach(e => {
-      const s = e.section || '(없음)';
-      sectionCounts[s] = (sectionCounts[s] || 0) + 1;
-    });
-    const sectionLabel = Object.keys(sectionCounts).map(k => k + '=' + sectionCounts[k] + '명').join(' | ');
-    const updateOtVac = (date, name, key, value) => {
-      setOtVacationData(prev => {
-        const next = {
-          ...prev
-        };
-        if (!next[date]) next[date] = {};
-        if (!next[date][name]) next[date][name] = {
-          type: '',
-          shift: '',
-          vacation: '',
-          ot: 0
-        };
-        next[date][name] = {
-          ...next[date][name],
-          [key]: value
-        };
-        if (key === 'type') {
-          if (value === 'work' || value === 'special') {
-            next[date][name].vacation = '';
-            if (!next[date][name].shift) next[date][name].shift = '주간';
-          } else if (value === 'vacation') {
-            next[date][name].shift = '';
-            if (!next[date][name].vacation) next[date][name].vacation = '연차';
-          } else {
-            next[date][name].shift = '';
-            next[date][name].vacation = '';
-          }
-        }
-        const d = next[date][name];
-        const noOt = (!d.ot || d.ot === 0) && (!d.ot15 || d.ot15 === 0) && (!d.ot20 || d.ot20 === 0);
-        if (!d.type && !d.shift && !d.vacation && noOt) {
-          delete next[date][name];
-        }
-        if (next[date] && Object.keys(next[date]).length === 0) delete next[date];
-        localStorage.setItem('tcpOtVacationData', JSON.stringify(next));
-        return next;
-      });
-    };
-    const moveDate = delta => {
-      const d = new Date(otvacDate);
-      d.setDate(d.getDate() + delta);
-      setOtvacDate(d.toISOString().split('T')[0]);
-    };
-    const copyFromPrevDay = () => {
-      const prev = new Date(otvacDate);
-      prev.setDate(prev.getDate() - 1);
-      const prevDateStr = prev.toISOString().split('T')[0];
-      const prevData = otVacationData[prevDateStr];
-      if (!prevData || Object.keys(prevData).length === 0) {
-        alert('전일(' + prevDateStr + ') 데이터가 없습니다.');
-        return;
-      }
-      if (!confirm(prevDateStr + ' 데이터를 ' + otvacDate + '로 복사합니다.\n현재 일자 데이터는 덮어쓰여집니다. 계속할까요?')) return;
-      setOtVacationData(p => {
-        const next = {
-          ...p
-        };
-        next[otvacDate] = JSON.parse(JSON.stringify(prevData));
-        localStorage.setItem('tcpOtVacationData', JSON.stringify(next));
-        return next;
-      });
-    };
-    return React.createElement("div", null, React.createElement("div", {
-      className: "flex gap-2 mb-6"
-    }, React.createElement("button", {
-      onClick: () => setOtvacView('daily'),
-      className: `px-4 py-2 rounded-lg text-sm font-medium transition-colors ${otvacView === 'daily' ? 'bg-amber-100 text-amber-700 border-2 border-amber-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`
-    }, "📅 일자별 입력"), React.createElement("button", {
-      onClick: () => setOtvacView('monthly'),
-      className: `px-4 py-2 rounded-lg text-sm font-medium transition-colors ${otvacView === 'monthly' ? 'bg-amber-100 text-amber-700 border-2 border-amber-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`
-    }, "📊 월별 조회")), otvacView === 'daily' && React.createElement("div", null, React.createElement("div", {
-      className: "flex items-center gap-3 mb-4 flex-wrap"
-    }, React.createElement("button", {
-      onClick: () => moveDate(-1),
-      className: "px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm"
-    }, "◀ 이전일"), React.createElement("input", {
-      type: "date",
-      value: otvacDate,
-      onChange: e => setOtvacDate(e.target.value),
-      className: "px-3 py-2 border rounded text-sm"
-    }), React.createElement("button", {
-      onClick: () => moveDate(1),
-      className: "px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm"
-    }, "다음일 ▶"), React.createElement("span", {
-      className: "text-sm text-gray-500 ml-2"
-    }, new Date(otvacDate).toLocaleDateString('ko-KR', {
-      weekday: 'long'
-    })), React.createElement("button", {
-      onClick: copyFromPrevDay,
-      className: "px-3 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded text-sm font-medium"
-    }, "📋 전일 복사"), React.createElement("span", {
-      className: "text-xs text-gray-400 ml-auto"
-    }, "자동 저장됩니다")), React.createElement("div", {
-      className: "overflow-x-auto bg-white rounded-lg border"
-    }, React.createElement("table", {
-      className: "w-full text-sm"
-    }, React.createElement("thead", {
-      className: "bg-gray-100"
-    }, React.createElement("tr", null, React.createElement("th", {
-      className: "px-3 py-2 border text-left w-28"
-    }, "이름"), React.createElement("th", {
-      className: "px-3 py-2 border w-24"
-    }, "상태"), React.createElement("th", {
-      className: "px-3 py-2 border w-24"
-    }, "휴가 유형"), React.createElement("th", {
-      className: "px-3 py-2 border w-20"
-    }, "주야"), React.createElement("th", {
-      className: "px-3 py-2 border w-24"
-    }, "OT (1.5배)"), React.createElement("th", {
-      className: "px-3 py-2 border w-24"
-    }, "OT (2배)"), React.createElement("th", {
-      className: "px-3 py-2 border w-14"
-    }, "초기화"))), React.createElement("tbody", null, tcpEmployees.length === 0 && React.createElement("tr", null, React.createElement("td", {
-      colSpan: "7",
-      className: "px-3 py-4 text-center text-gray-400"
-    }, "등록된 TCP 인원이 없습니다.")), tcpEmployees.map(emp => {
-      const data = otVacationData[otvacDate]?.[emp.name] || {
-        type: 'work',
-        shift: '주간',
-        vacation: '',
-        ot15: '',
-        ot20: ''
-      };
-      const rowBg = data.type === 'vacation' ? 'bg-red-50' : data.type === 'special' ? 'bg-purple-50' : data.type === 'work' ? '' : 'bg-gray-50';
-      return React.createElement("tr", {
-        key: emp.id,
-        className: `${rowBg} hover:bg-amber-50`
-      }, React.createElement("td", {
-        className: "px-3 py-2 border font-medium"
-      }, emp.name, emp.role === '조장' && React.createElement("span", {
-        className: "ml-1 text-xs text-indigo-600"
-      }, "[조장]")), React.createElement("td", {
-        className: "px-3 py-2 border"
-      }, React.createElement("select", {
-        value: data.type || '',
-        onChange: e => updateOtVac(otvacDate, emp.name, 'type', e.target.value),
-        className: "px-2 py-1 border rounded text-sm w-full"
-      }, React.createElement("option", {
-        value: ""
-      }, "-"), React.createElement("option", {
-        value: "work"
-      }, "근무"), React.createElement("option", {
-        value: "special"
-      }, "특근"), React.createElement("option", {
-        value: "vacation"
-      }, "휴가"))), React.createElement("td", {
-        className: "px-3 py-2 border"
-      }, React.createElement("select", {
-        disabled: data.type !== 'vacation',
-        value: data.vacation || '',
-        onChange: e => updateOtVac(otvacDate, emp.name, 'vacation', e.target.value),
-        className: "px-2 py-1 border rounded text-sm w-full disabled:bg-gray-100 disabled:text-gray-400"
-      }, React.createElement("option", {
-        value: ""
-      }, "-"), VACATION_TYPES.map(v => React.createElement("option", {
-        key: v,
-        value: v
-      }, v)))), React.createElement("td", {
-        className: "px-3 py-2 border"
-      }, React.createElement("select", {
-        disabled: data.type !== 'work' && data.type !== 'special',
-        value: data.shift || '',
-        onChange: e => updateOtVac(otvacDate, emp.name, 'shift', e.target.value),
-        className: "px-2 py-1 border rounded text-sm w-full disabled:bg-gray-100 disabled:text-gray-400"
-      }, React.createElement("option", {
-        value: ""
-      }, "-"), React.createElement("option", {
-        value: "주간"
-      }, "주간"), React.createElement("option", {
-        value: "야간"
-      }, "야간"))), React.createElement("td", {
-        className: "px-3 py-2 border"
-      }, React.createElement("input", {
-        type: "text",
-        inputMode: "decimal",
-        value: !data.ot15 && !data.ot ? '' : data.ot15 || data.ot,
-        onFocus: e => e.target.select(),
-        onChange: e => {
-          const v = e.target.value;
-          if (v === '' || /^\d{0,2}(\.\d{0,2})?$/.test(v)) updateOtVac(otvacDate, emp.name, 'ot15', v);
-        },
-        className: "px-2 py-1 border rounded text-sm w-full text-right"
-      })), React.createElement("td", {
-        className: "px-3 py-2 border"
-      }, React.createElement("input", {
-        type: "text",
-        inputMode: "decimal",
-        value: !data.ot20 ? '' : data.ot20,
-        onFocus: e => e.target.select(),
-        onChange: e => {
-          const v = e.target.value;
-          if (v === '' || /^\d{0,2}(\.\d{0,2})?$/.test(v)) updateOtVac(otvacDate, emp.name, 'ot20', v);
-        },
-        className: "px-2 py-1 border rounded text-sm w-full text-right"
-      })), React.createElement("td", {
-        className: "px-3 py-2 border text-center"
-      }, React.createElement("button", {
-        onClick: () => updateOtVac(otvacDate, emp.name, 'type', ''),
-        className: "text-xs text-red-500 hover:text-red-700"
-      }, "✕")));
-    }))))), otvacView === 'monthly' && React.createElement("div", null, React.createElement("div", {
-      className: "flex items-center gap-3 mb-4 flex-wrap"
-    }, React.createElement("select", {
-      value: otvacYear,
-      onChange: e => setOtvacYear(Number(e.target.value)),
-      className: "px-3 py-2 border rounded text-sm"
-    }, [2024, 2025, 2026, 2027].map(y => React.createElement("option", {
-      key: y,
-      value: y
-    }, y, "년"))), React.createElement("select", {
-      value: otvacMonth,
-      onChange: e => setOtvacMonth(Number(e.target.value)),
-      className: "px-3 py-2 border rounded text-sm"
-    }, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => React.createElement("option", {
-      key: m,
-      value: m
-    }, m, "월"))), React.createElement("span", {
-      className: "text-xs text-gray-400 ml-auto"
-    }, "셀을 클릭하면 그 일자의 입력 화면으로 이동합니다")), React.createElement("div", {
-      className: "bg-white rounded-lg border p-3 mb-2 text-xs text-gray-600"
-    }, React.createElement("span", {
-      className: "font-medium"
-    }, "범례:"), React.createElement("span", {
-      className: "ml-3 inline-block w-6 h-5 bg-yellow-100 text-yellow-800 text-center rounded mr-1 align-middle"
-    }, "주"), "주간", React.createElement("span", {
-      className: "ml-3 inline-block w-6 h-5 bg-indigo-100 text-indigo-800 text-center rounded mr-1 align-middle"
-    }, "야"), "야간", React.createElement("span", {
-      className: "ml-3 inline-block w-6 h-5 bg-red-100 text-red-800 text-center rounded mr-1 align-middle"
-    }, "연"), "연차", React.createElement("span", {
-      className: "ml-2 inline-block w-6 h-5 bg-red-100 text-red-800 text-center rounded mr-1 align-middle"
-    }, "반"), "반차", React.createElement("span", {
-      className: "ml-2 inline-block w-6 h-5 bg-red-100 text-red-800 text-center rounded mr-1 align-middle"
-    }, "병"), "병가", React.createElement("span", {
-      className: "ml-2 inline-block w-6 h-5 bg-red-100 text-red-800 text-center rounded mr-1 align-middle"
-    }, "무"), "무급", React.createElement("span", {
-      className: "ml-2 inline-block w-6 h-5 bg-red-100 text-red-800 text-center rounded mr-1 align-middle"
-    }, "대"), "대체", React.createElement("span", {
-      className: "ml-2 inline-block w-6 h-5 bg-red-100 text-red-800 text-center rounded mr-1 align-middle"
-    }, "경"), "경조"), (() => {
-      const daysInMonth = new Date(otvacYear, otvacMonth, 0).getDate();
-      const days = Array.from({
-        length: daysInMonth
-      }, (_, i) => i + 1);
-      const codeOf = data => {
-        if (!data || !data.type) return '';
-        if (data.type === 'work') return data.shift === '야간' ? '야' : '주';
-        if (data.type === 'special') return data.shift === '야간' ? '특야' : '특주';
-        if (data.type === 'vacation') {
-          const map = {
-            '연차': '연',
-            '반차': '반',
-            '병가': '병',
-            '무급': '무',
-            '대체': '대',
-            '경조': '경'
-          };
-          return map[data.vacation] || '휴';
-        }
-        return '';
-      };
-      const colorOf = data => {
-        if (!data || !data.type) return '';
-        if (data.type === 'work') return data.shift === '야간' ? 'bg-indigo-100 text-indigo-800' : 'bg-yellow-100 text-yellow-800';
-        if (data.type === 'special') return data.shift === '야간' ? 'bg-purple-100 text-purple-800' : 'bg-pink-100 text-pink-800';
-        return 'bg-red-100 text-red-800';
-      };
-      return React.createElement("div", {
-        className: "overflow-x-auto bg-white rounded-lg border"
-      }, React.createElement("table", {
-        className: "text-xs"
-      }, React.createElement("thead", null, React.createElement("tr", {
-        className: "bg-gray-100"
-      }, React.createElement("th", {
-        className: "px-2 py-1 border sticky left-0 bg-gray-100 z-10 min-w-[100px]"
-      }, "이름"), days.map(d => {
-        const dow = new Date(otvacYear, otvacMonth - 1, d).getDay();
-        const color = dow === 0 ? 'text-red-600 bg-red-50' : dow === 6 ? 'text-blue-600 bg-blue-50' : '';
-        return React.createElement("th", {
-          key: d,
-          className: `px-1 py-1 border w-9 ${color}`
-        }, d);
-      }), React.createElement("th", {
-        className: "px-2 py-1 border bg-amber-50 min-w-[55px]"
-      }, "OT 1.5배"), React.createElement("th", {
-        className: "px-2 py-1 border bg-orange-50 min-w-[55px]"
-      }, "OT 2배"), React.createElement("th", {
-        className: "px-2 py-1 border bg-rose-50 min-w-[55px]"
-      }, "휴가 합"))), React.createElement("tbody", null, tcpEmployees.length === 0 && React.createElement("tr", null, React.createElement("td", {
-        colSpan: days.length + 4,
-        className: "px-3 py-4 text-center text-gray-400"
-      }, "등록된 TCP 인원이 없습니다.")), tcpEmployees.map(emp => {
-        let totalOt15 = 0,
-          totalOt20 = 0,
-          vacCount = 0;
-        const cells = days.map(d => {
-          const dateStr = `${otvacYear}-${String(otvacMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-          const data = otVacationData[dateStr]?.[emp.name];
-          if (data) {
-            if (data.ot15) totalOt15 += parseFloat(data.ot15) || 0;else if (data.ot) totalOt15 += parseFloat(data.ot) || 0;
-            if (data.ot20) totalOt20 += parseFloat(data.ot20) || 0;
-            if (data.type === 'vacation') {
-              vacCount += data.vacation === '반차' ? 0.5 : 1;
-            }
-          }
-          return {
-            dateStr,
-            data
-          };
-        });
-        return React.createElement("tr", {
-          key: emp.id,
-          className: "hover:bg-amber-50/30"
-        }, React.createElement("td", {
-          className: "px-2 py-1 border sticky left-0 bg-white z-10 font-medium"
-        }, emp.name), cells.map(({
-          dateStr,
-          data
-        }) => {
-          const code = codeOf(data);
-          return React.createElement("td", {
-            key: dateStr,
-            onClick: () => {
-              setOtvacDate(dateStr);
-              setOtvacView('daily');
-            },
-            className: `px-1 py-1 border text-center cursor-pointer ${colorOf(data)} hover:ring-2 hover:ring-amber-400 transition`,
-            title: data ? `${data.type === 'work' || data.type === 'special' ? data.shift : data.vacation || ''} ${(parseFloat(data.ot15) || 0) > 0 ? '/ 1.5배 ' + data.ot15 + 'h' : ''}${(parseFloat(data.ot20) || 0) > 0 ? ' / 2.0배 ' + data.ot20 + 'h' : ''}` : ''
-          }, React.createElement("div", null, code), (parseFloat(data?.ot15) || parseFloat(data?.ot) || 0) + (parseFloat(data?.ot20) || 0) > 0 && React.createElement("div", {
-            className: "text-[9px] text-gray-600 leading-tight"
-          }, "+", ((parseFloat(data?.ot15) || parseFloat(data?.ot) || 0) + (parseFloat(data?.ot20) || 0)).toFixed(1)));
-        }), React.createElement("td", {
-          className: "px-2 py-1 border text-right font-semibold text-amber-700 bg-amber-50"
-        }, totalOt15.toFixed(1), "h"), React.createElement("td", {
-          className: "px-2 py-1 border text-right font-semibold text-orange-700 bg-orange-50"
-        }, totalOt20.toFixed(1), "h"), React.createElement("td", {
-          className: "px-2 py-1 border text-right font-semibold text-rose-700 bg-rose-50"
-        }, vacCount, "일"));
-      }))));
-    })()));
-  })()), activeTab === 'settings' && React.createElement("div", {
+  }, "등록된 직원이 없습니다."))))))), (personnelSubTab === 'assign' || personnelSubTab === 'otvac') && React.createElement(RosterHost, {
+    section: 'TCP',
+    view: personnelSubTab === 'otvac' ? 'ot' : 'roster',
+    employees,
+    allEmployees: employees,
+    skill: (skillData || {})['TCP'] || {},
+    data: rosterV2['TCP'],
+    legacy: { lineAssignments, slotStatus, otVacationData, absenceReasons },
+    onCommit: x => setRosterV2(prev => ({ ...prev, 'TCP': x })),
+    onSkill: x => setSkillData(prev => ({ ...(prev || {}), 'TCP': x })),
+    onLead: m => setEmployees(prev => prev.map(e => String(e.section || '').toUpperCase() === 'TCP' ? { ...e, role: m[e.name] ? '조장' : (e.role === '조장' ? '작업자' : e.role) } : e)),
+    onView: v => setPersonnelSubTab(v === 'ot' ? 'otvac' : 'assign')
+  })), activeTab === 'settings' && React.createElement("div", {
     className: "bg-white rounded-xl shadow-lg p-6"
   }, React.createElement("h2", {
     className: "text-xl font-bold text-gray-800 mb-6"
