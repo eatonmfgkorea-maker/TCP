@@ -4255,7 +4255,7 @@ function MFGProductionApp() {
       className: "text-gray-500"
     }, "데이터를 불러오는 중... ", React.createElement("span", {
       className: "text-xs font-mono text-gray-400"
-    }, "V078"))));
+    }, "V079"))));
   }
   return React.createElement("div", {
     className: "w-full h-screen bg-gray-100 flex flex-col",
@@ -4303,7 +4303,7 @@ function MFGProductionApp() {
     className: "text-2xl font-bold"
   }, "TCP 생산관리 시스템"), React.createElement("span", {
     className: "ml-2 px-2 py-0.5 bg-white/20 rounded text-xs font-mono font-bold align-middle"
-  }, "V078")), React.createElement("div", {
+  }, "V079")), React.createElement("div", {
     className: "text-right"
   }, React.createElement("div", {
     className: "text-sm opacity-80"
@@ -4549,20 +4549,6 @@ function MFGProductionApp() {
       borderBottomWidth: activeTab === 'lot' ? '3px' : '0'
     }
   }, "Lot"), React.createElement("button", {
-    type: "button",
-    onClick: () => setActiveTab('oee'),
-    className: `py-4 px-6 text-center font-medium transition-colors ${activeTab === 'oee' ? 'text-teal-600 border-b-3 border-teal-600 bg-teal-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`,
-    style: {
-      borderBottomWidth: activeTab === 'oee' ? '3px' : '0'
-    }
-  }, "OEE"), React.createElement("button", {
-    type: "button",
-    onClick: () => setActiveTab('analysis'),
-    className: `py-4 px-6 text-center font-medium transition-colors ${activeTab === 'analysis' ? 'text-rose-600 border-b-3 border-rose-600 bg-rose-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`,
-    style: {
-      borderBottomWidth: activeTab === 'analysis' ? '3px' : '0'
-    }
-  }, "분석"), React.createElement("button", {
     type: "button",
     onClick: () => setActiveTab('personnel'),
     className: `py-4 px-6 text-center font-medium transition-colors ${activeTab === 'personnel' ? 'text-indigo-600 border-b-3 border-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`,
@@ -6371,6 +6357,8 @@ function MFGProductionApp() {
         zIndex: 20
       }
     }, React.createElement("tr", null, React.createElement("th", {
+      className: "px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap"
+    }, "일자"), React.createElement("th", {
       className: "px-3 py-2 text-left font-medium text-gray-600",
       style: {
         position: 'relative'
@@ -6529,7 +6517,7 @@ function MFGProductionApp() {
     }, "종료"), React.createElement("th", {
       className: "px-3 py-2 text-left font-medium text-gray-600"
     }, "내용"))), React.createElement("tbody", null, allLogs.length === 0 ? React.createElement("tr", null, React.createElement("td", {
-      colSpan: "8",
+      colSpan: "9",
       className: "px-4 py-8 text-center text-gray-400"
     }, "해당 날짜에 ", activeSection, " 비가동 내역이 없습니다.")) : allLogs.map(log => {
       const prod = getProductionLogById(log.productionLogId);
@@ -6537,6 +6525,8 @@ function MFGProductionApp() {
         key: log.id,
         className: "border-t hover:bg-gray-50"
       }, React.createElement("td", {
+        className: "px-3 py-2 whitespace-nowrap text-gray-700"
+      }, prod?.productionDate), React.createElement("td", {
         className: "px-3 py-2"
       }, prod?.lineName), React.createElement("td", {
         className: "px-3 py-2"
@@ -6560,7 +6550,7 @@ function MFGProductionApp() {
     })), allLogs.length > 0 && React.createElement("tfoot", null, React.createElement("tr", {
       className: "border-t-2 bg-orange-50 border-orange-200"
     }, React.createElement("td", {
-      colSpan: "8",
+      colSpan: "9",
       className: "px-3 py-2 font-medium text-orange-700"
     }, "소계 (", allLogs.length, "건)")))))));
   })(), viewSubTab === 'defect' && React.createElement("div", {
@@ -6609,6 +6599,8 @@ function MFGProductionApp() {
         zIndex: 20
       }
     }, React.createElement("tr", null, React.createElement("th", {
+      className: "px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap"
+    }, "일자"), React.createElement("th", {
       className: "px-3 py-2 text-left font-medium text-gray-600",
       style: {
         position: 'relative'
@@ -6769,7 +6761,7 @@ function MFGProductionApp() {
     }, "세부종류"), React.createElement("th", {
       className: "px-3 py-2 text-right font-medium text-gray-600"
     }, "횟수"))), React.createElement("tbody", null, allLogs.length === 0 ? React.createElement("tr", null, React.createElement("td", {
-      colSpan: "8",
+      colSpan: "9",
       className: "px-4 py-8 text-center text-gray-400"
     }, "해당 날짜에 ", activeSection, " 불량 내역이 없습니다.")) : allLogs.map(log => {
       const prod = getProductionLogById(log.productionLogId);
@@ -6777,6 +6769,8 @@ function MFGProductionApp() {
         key: log.id,
         className: "border-t hover:bg-gray-50"
       }, React.createElement("td", {
+        className: "px-3 py-2 whitespace-nowrap text-gray-700"
+      }, prod?.productionDate), React.createElement("td", {
         className: "px-3 py-2"
       }, prod?.lineName), React.createElement("td", {
         className: "px-3 py-2"
@@ -6810,7 +6804,7 @@ function MFGProductionApp() {
     })), allLogs.length > 0 && React.createElement("tfoot", null, React.createElement("tr", {
       className: "border-t-2 bg-red-50 border-red-200"
     }, React.createElement("td", {
-      colSpan: "7",
+      colSpan: "8",
       className: "px-3 py-2 font-medium text-red-700"
     }, "소계 (", allLogs.length, "건)"), React.createElement("td", {
       className: "px-3 py-2 text-right font-bold text-red-700"
@@ -6851,6 +6845,8 @@ function MFGProductionApp() {
         zIndex: 20
       }
     }, React.createElement("tr", null, React.createElement("th", {
+      className: "px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap"
+    }, "일자"), React.createElement("th", {
       className: "px-3 py-2 text-left font-medium text-gray-600",
       style: {
         position: 'relative'
@@ -6949,7 +6945,7 @@ function MFGProductionApp() {
     }, "세부종류"), React.createElement("th", {
       className: "px-3 py-2 text-right font-medium text-gray-600"
     }, "횟수"))), React.createElement("tbody", null, allLogs.length === 0 ? React.createElement("tr", null, React.createElement("td", {
-      colSpan: "7",
+      colSpan: "8",
       className: "px-4 py-8 text-center text-gray-400"
     }, "해당 날짜에 ", activeSection, " 공정불량 내역이 없습니다.")) : allLogs.map(log => {
       const prod = getProductionLogById(log.productionLogId);
@@ -6957,6 +6953,8 @@ function MFGProductionApp() {
         key: log.id,
         className: "border-t hover:bg-gray-50"
       }, React.createElement("td", {
+        className: "px-3 py-2 whitespace-nowrap text-gray-700"
+      }, prod?.productionDate), React.createElement("td", {
         className: "px-3 py-2"
       }, prod?.lineName), React.createElement("td", {
         className: "px-3 py-2"
@@ -6988,7 +6986,7 @@ function MFGProductionApp() {
     })), allLogs.length > 0 && React.createElement("tfoot", null, React.createElement("tr", {
       className: "border-t-2 bg-purple-50 border-purple-200"
     }, React.createElement("td", {
-      colSpan: "6",
+      colSpan: "7",
       className: "px-3 py-2 font-medium text-purple-700"
     }, "소계 (", allLogs.length, "건)"), React.createElement("td", {
       className: "px-3 py-2 text-right font-bold text-purple-700"
@@ -7039,6 +7037,8 @@ function MFGProductionApp() {
         zIndex: 20
       }
     }, React.createElement("tr", null, React.createElement("th", {
+      className: "px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap"
+    }, "일자"), React.createElement("th", {
       className: "px-3 py-2 text-left font-medium text-gray-600",
       style: {
         position: 'relative'
@@ -7197,7 +7197,7 @@ function MFGProductionApp() {
     }, "세부종류"), React.createElement("th", {
       className: "px-3 py-2 text-right font-medium text-gray-600"
     }, "수량"))), React.createElement("tbody", null, allLogs.length === 0 ? React.createElement("tr", null, React.createElement("td", {
-      colSpan: "6",
+      colSpan: "7",
       className: "px-4 py-8 text-center text-gray-400"
     }, "해당 날짜에 ", activeSection, " 재작업 내역이 없습니다.")) : allLogs.map(log => {
       const prod = getProductionLogById(log.productionLogId);
@@ -7205,6 +7205,8 @@ function MFGProductionApp() {
         key: log.id,
         className: "border-t hover:bg-gray-50"
       }, React.createElement("td", {
+        className: "px-3 py-2 whitespace-nowrap text-gray-700"
+      }, prod?.productionDate), React.createElement("td", {
         className: "px-3 py-2"
       }, prod?.lineName), React.createElement("td", {
         className: "px-3 py-2"
@@ -7226,7 +7228,7 @@ function MFGProductionApp() {
     })), allLogs.length > 0 && React.createElement("tfoot", null, React.createElement("tr", {
       className: "border-t-2 bg-amber-50 border-amber-200"
     }, React.createElement("td", {
-      colSpan: "5",
+      colSpan: "7",
       className: "px-3 py-2 font-medium text-amber-700"
     }, "소계 (", allLogs.length, "건)"), React.createElement("td", {
       className: "px-3 py-2 text-right font-bold text-amber-700"
