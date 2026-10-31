@@ -12,244 +12,301 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body, #root { height: 100%; }
   </style>
-<!-- ==================== MFG 구글 인증 (자기완결) ==================== -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- ==================== MFG 서버 인증 (이름+비밀번호, 자기완결) ==================== -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 (function() {
-  // ===== 앱 식별자 — 앱마다 이 값만 다르게 =====
-  var APP_KEY = 'TCP';
   var APP_NAME = 'TCP 생산관리 시스템';
-
-  var AUTH_URL = 'https://script.google.com/macros/s/AKfycbwOwQs6I_uAdHh7MSr8rKHJcxoCWxUg8D9WSiOWJJvYs8hwME93RU72hD8-angmTJsT/exec';
-  var CLIENT_ID = '407676513996-mp5mqdqtdg1jjkmq2rqg7kf69drjatqc.apps.googleusercontent.com';
+  var APP_VER = 'V087S';
+  var SB_DEFAULT_URL = 'https://tmbeaswlpvsyjehacgsa.supabase.co';
+  var SB_DEFAULT_KEY = 'sb_publishable_OM6ITpYn8LYPWXXhwdA4kQ_HuAyAxV9';
+  var CFG_KEY = 'mfg-sb-test-cfg', AUTH_KEY = 'mfg-sb-test-auth', LAST_EMAIL = 'mfg-sb-test-last-email';
   var PORTAL_URL = 'https://eatonmfgkorea-maker.github.io/MFGManagement/';
 
-  // 로그인 유지 기간 (한 번 로그인하면 이 기간 동안 다시 묻지 않음)
-  var SESSION_DAYS = 180;
-  // 권한은 페이지를 열 때마다 서버에서 재확인한다.
-  // 서버가 응답하지 않으면 기존 권한을 그대로 유지해 접속이 끊기지 않게 한다.
-
-  var K_EMAIL = 'mfg_g_email', K_NAME = 'mfg_g_name', K_ROLE = 'mfg_g_role';
-  var K_APPS = 'mfg_g_apps', K_EXP = 'mfg_g_exp', K_CHK = 'mfg_g_lastcheck';
-
-  function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-  function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-  function del(k) { try { localStorage.removeItem(k); } catch (e) {} }
-
-  function clearSession() {
-    [K_EMAIL, K_NAME, K_ROLE, K_APPS, K_EXP, K_CHK].forEach(del);
+  function getCfg() { return { url: SB_DEFAULT_URL, key: SB_DEFAULT_KEY }; }   // 서버 주소 고정
+  var ALLOW_GUEST = false;   // 게스트(로그인 없이 보기 전용) 허용 여부 — MFG Report만
+  var GUEST_KEY = 'mfgsb_guest';
+  function isGuestFlag() { try { if (localStorage.getItem(GUEST_KEY) === '1') return true; } catch (e) {} try { return sessionStorage.getItem(GUEST_KEY) === '1'; } catch (e) { return false; } }
+  function setGuestFlag(on) {
+    try { if (on) localStorage.setItem(GUEST_KEY, '1'); else localStorage.removeItem(GUEST_KEY); } catch (e) {}
+    try { if (on) sessionStorage.setItem(GUEST_KEY, '1'); else sessionStorage.removeItem(GUEST_KEY); } catch (e) {}
   }
-
-  function savedApps() {
-    try { return JSON.parse(get(K_APPS) || '[]'); } catch (e) { return []; }
-  }
-
-  // 저장된 세션이 유효하고 이 앱 권한이 있는가
-  function hasValidSession() {
-    var email = get(K_EMAIL);
-    var exp = parseInt(get(K_EXP) || '0', 10);
-    if (!email || !exp || Date.now() > exp) return false;
-    if (get(K_ROLE) === 'admin') return true;
-    return savedApps().indexOf(APP_KEY) !== -1;
-  }
-
-  // 전역으로 로그인 정보 제공 (앱에서 필요하면 사용)
-  function publish() {
-    window.MFG_USER = {
-      email: get(K_EMAIL) || '',
-      name: get(K_NAME) || '',
-      role: get(K_ROLE) || 'user',
-      apps: savedApps(),
-      isAdmin: get(K_ROLE) === 'admin',
-      isGuest: get(K_ROLE) === 'guest',
-      logout: function() { clearSession(); location.reload(); }
-    };
-  }
-
-  function saveSession(d) {
-    set(K_EMAIL, d.email || '');
-    set(K_NAME, d.name || '');
-    set(K_ROLE, d.role || 'user');
-    set(K_APPS, JSON.stringify(d.apps || []));
-    set(K_EXP, String(Date.now() + SESSION_DAYS * 86400000));
-    set(K_CHK, String(Date.now()));
-  }
-
-  function call(params, cb) {
-    var qs = Object.keys(params).map(function(k) {
-      return k + '=' + encodeURIComponent(params[k]);
-    }).join('&');
-    var tries = 0;
-    function go() {
-      tries++;
-      fetch(AUTH_URL + '?' + qs + '&_=' + Date.now())
-        .then(function(r) {
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          return r.json();
-        })
-        .then(function(d) { cb(d, null); })
-        .catch(function(e) {
-          if (tries < 3) { setTimeout(go, 1500 * tries); }
-          else { cb(null, e); }
-        });
+  // 로그인 정보는 IndexedDB에 저장 — localStorage(5MB)는 같은 사이트의 여러 앱이 나눠 써서 꽉 차면 로그인이 저장되지 않음
+  var authStore = (function() {
+    var dbp = null;
+    function db() {
+      if (!dbp) dbp = new Promise(function(res, rej) {
+        var r = indexedDB.open('mfg_sb_auth', 1);
+        r.onupgradeneeded = function() { r.result.createObjectStore('kv'); };
+        r.onsuccess = function() { res(r.result); };
+        r.onerror = function() { rej(r.error); };
+      });
+      return dbp;
     }
-    go();
+    function run(mode, fn) {
+      return db().then(function(d) { return new Promise(function(res, rej) {
+        var t = d.transaction('kv', mode), q = fn(t.objectStore('kv'));
+        t.oncomplete = function() { res(q ? q.result : undefined); };
+        t.onerror = function() { rej(t.error); };
+      }); });
+    }
+    function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+    return {
+      getItem: function(k) { return run('readonly', function(s) { return s.get(k); }).then(function(v) { return v != null ? v : lsGet(k); }, function() { return lsGet(k); }); },
+      setItem: function(k, v) { try { localStorage.setItem(k, v); } catch (e) {} return run('readwrite', function(s) { return s.put(v, k); }).catch(function() {}); },
+      removeItem: function(k) { try { localStorage.removeItem(k); } catch (e) {} return run('readwrite', function(s) { return s.delete(k); }).catch(function() {}); }
+    };
+  })();
+  var cfg = getCfg(), client = null;
+  try { client = window.supabase.createClient(cfg.url, cfg.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: AUTH_KEY, storage: authStore } }); } catch (e) { console.error('서버 연결 초기화 실패', e); }
+  window.MFG_SB = client; window.MFG_USER = null;
+  if (ALLOW_GUEST && isGuestFlag()) window.MFG_USER = { email: '', name: '게스트', role: 'guest', isAdmin: false, isGuest: true, logout: function() { setGuestFlag(false); location.reload(); } };
+  var resolveReady; window.__sbReady = new Promise(function(r) { resolveReady = r; });
+  var errText = function(e) { if (!e) return '알 수 없는 오류'; var m = e.message || e.error_description || String(e); return /invalid login credentials/i.test(m) ? '이름 또는 비밀번호가 올바르지 않습니다.' : m; };
+  // 이름 → 내부 로그인 주소 (SQL login_email과 같은 규칙). '@'가 있으면 그대로
+  function idToEmail(id) {
+    id = String(id || '').trim();
+    if (id.indexOf('@') >= 0) return id.toLowerCase();
+    var b = new TextEncoder().encode(id), h = '';
+    for (var i = 0; i < b.length; i++) h += (b[i] < 16 ? '0' : '') + b[i].toString(16);
+    return 'u-' + h + '@mfg.local';
   }
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
-  // 권한 재확인 — 서버가 «권한 없음»이라 답하면 즉시 차단,
-  // 서버가 응답하지 않으면(장애) 기존 세션을 그대로 유지한다.
-  function recheck() {
-    var email = get(K_EMAIL);
-    if (!email) return;
-    call({ action: 'checkAccess', app: APP_KEY, email: email }, function(d, err) {
-      if (err || !d) return;                 // 서버 장애 → 기존 권한 유지
-      if (d.ok) {                            // 여전히 접근 가능 → 최신 정보로 갱신
-        if (d.email) { saveSession(d); publish(); }
-        return;
-      }
-      // 서버가 명확히 거부 (권한 회수 · 차단 · 승인 취소)
-      clearSession();
-      var why = d.status === 'blocked' ? '계정이 차단되었습니다.'
-              : d.status === 'noapp' ? '이 앱의 접근 권한이 해제되었습니다.'
-              : '접근 권한이 없습니다.';
-      try { sessionStorage.setItem('mfg_revoked', why); } catch (e) {}
-      location.reload();
-    });
-  }
-
-  // ===== 이미 로그인된 경우 =====
-  if (hasValidSession()) {
-    publish();
-    recheck();
-    return;
-  }
-
-  // ===== 로그인 화면 =====
-  var css = 'font-family:Pretendard,"Malgun Gothic",-apple-system,sans-serif;';
+  function $(id) { return document.getElementById(id); }
+  var inp = 'width:100%;padding:0.6rem 0.75rem;border-radius:0.5rem;border:1px solid #475569;background:#0b1220;color:#e2e8f0;font-size:0.9rem;box-sizing:border-box;';
+  var btn = 'width:100%;padding:0.65rem;border:0;border-radius:0.5rem;background:#2563eb;color:#fff;font-weight:600;font-size:0.95rem;cursor:pointer;';
 
   function overlay() {
+    if ($('mfgAuthOverlay')) return;
     var div = document.createElement('div');
     div.id = 'mfgAuthOverlay';
-    div.style.cssText = 'position:fixed;inset:0;background:rgba(10,14,26,0.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;' + css;
+    div.style.cssText = 'position:fixed;inset:0;background:rgba(10,14,26,0.96);backdrop-filter:blur(8px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;font-family:Pretendard,"Malgun Gothic",-apple-system,sans-serif;';
     div.innerHTML =
-      '<div style="background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:1rem;padding:2rem;width:100%;max-width:26rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);text-align:center;">' +
-        '<div style="display:inline-flex;align-items:center;justify-content:center;width:3.5rem;height:3.5rem;border-radius:1rem;background:rgba(59,130,246,0.2);border:1px solid rgba(96,165,250,0.3);margin-bottom:1rem;">' +
-          '<svg style="width:1.75rem;height:1.75rem;color:#60a5fa;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>' +
-        '</div>' +
-        '<h2 style="font-size:1.35rem;font-weight:bold;color:#fff;margin:0;">' + APP_NAME + '</h2>' +
-        '<p style="font-size:0.85rem;color:#94a3b8;margin:0.5rem 0 1.5rem;">승인된 구글 계정으로 로그인하세요</p>' +
-        '<div id="mfgGsiBtn" style="display:flex;justify-content:center;min-height:44px;"></div>' +
-        '<div id="mfgAuthMsg" style="display:none;font-size:0.85rem;margin-top:1rem;padding:0.6rem 0.8rem;border-radius:0.5rem;line-height:1.6;word-break:break-all;"></div>' +
+      '<div style="background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:1rem;padding:2rem;width:100%;max-width:24rem;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);text-align:center;">' +
+        '<h2 style="font-size:1.3rem;font-weight:bold;color:#fff;margin:0;">' + APP_NAME + '</h2>' +
+        '<div style="display:inline-block;margin:0.4rem 0 0.2rem;padding:1px 10px;border-radius:6px;background:#fff;color:#111827;font-size:0.75rem;font-weight:800;letter-spacing:1px;">' + APP_VER + '</div>' +
+        '<p id="mfgAuthSub" style="font-size:0.85rem;color:#94a3b8;margin:0.5rem 0 1.25rem;">이름과 비밀번호를 입력하세요</p>' +
+        '<form id="mfgLoginForm" style="display:flex;flex-direction:column;gap:0.5rem;text-align:left;">' +
+          '<input id="mfgEmail" type="text" placeholder="이름" autocomplete="username" style="' + inp + '">' +
+          '<input id="mfgPw" type="password" placeholder="비밀번호" autocomplete="current-password" style="' + inp + '">' +
+          '<button id="mfgLoginBtn" type="submit" style="' + btn + 'margin-top:0.25rem;">로그인</button>' +
+        '</form>' +
+        (ALLOW_GUEST ? '<button id="mfgGuestBtn" type="button" style="width:100%;margin-top:0.6rem;padding:0.6rem;border:1px solid #475569;border-radius:0.5rem;background:transparent;color:#cbd5e1;font-size:0.9rem;cursor:pointer;">게스트로 둘러보기</button><div style="font-size:0.75rem;color:#64748b;margin-top:0.35rem;">게스트는 일부 화면만 조회할 수 있습니다</div>' : '') +
+        '<div id="mfgAuthMsg" style="display:none;font-size:0.85rem;margin-top:1rem;padding:0.6rem 0.8rem;border-radius:0.5rem;line-height:1.6;word-break:break-all;text-align:left;"></div>' +
         '<div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,0.08);">' +
           '<a href="' + PORTAL_URL + '" style="font-size:0.8rem;color:#94a3b8;text-decoration:none;">← 메인 포털로 돌아가기</a>' +
         '</div>' +
       '</div>';
     document.body.appendChild(div);
     document.body.style.overflow = 'hidden';
+    try { var last = localStorage.getItem(LAST_EMAIL) || ''; $('mfgEmail').value = /@mfg\.local$/.test(last) ? '' : last; } catch (e) {}
+    $('mfgLoginForm').addEventListener('submit', function(ev) { ev.preventDefault(); doLogin(); });
+    if ($('mfgGuestBtn')) $('mfgGuestBtn').addEventListener('click', function() { setGuestFlag(true); enterGuest(); });
+    ($('mfgEmail').value ? $('mfgPw') : $('mfgEmail')).focus();
   }
-
+  function removeOverlay() { var el = $('mfgAuthOverlay'); if (el) el.remove(); document.body.style.overflow = ''; }
   function msg(text, kind) {
-    var el = document.getElementById('mfgAuthMsg');
-    if (!el) return;
-    el.style.display = 'block';
-    el.innerHTML = text;
+    var el = $('mfgAuthMsg'); if (!el) return;
+    el.style.display = 'block'; el.innerHTML = text;
     if (kind === 'err') { el.style.background = 'rgba(239,68,68,0.12)'; el.style.color = '#fca5a5'; }
     else if (kind === 'ok') { el.style.background = 'rgba(16,185,129,0.12)'; el.style.color = '#6ee7b7'; }
     else { el.style.background = 'rgba(59,130,246,0.12)'; el.style.color = '#93c5fd'; }
   }
 
-  function decodeJwt(t) {
-    try {
-      var b = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-      return JSON.parse(decodeURIComponent(atob(b).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join('')));
-    } catch (e) { return null; }
+  function enterGuest() {
+    window.MFG_USER = { email: '', name: '게스트', role: 'guest', isAdmin: false, isGuest: true, logout: function() { setGuestFlag(false); location.reload(); } };
+    removeOverlay();
+    ensureGear();
+    resolveReady(window.MFG_USER);
   }
-
-  function onCredential(resp) {
-    var p = decodeJwt(resp && resp.credential);
-    if (!p || !p.email) { msg('구글 로그인 정보를 읽지 못했습니다.', 'err'); return; }
-    msg('구글 계정 확인 중... <span style="color:#94a3b8;font-size:0.78rem;">(처음 한 번만 몇 초 걸립니다)</span>', 'info');
-    var _t0 = Date.now();
-    var _tick = setInterval(function() {
-      var sec = Math.round((Date.now() - _t0) / 1000);
-      if (sec >= 3) {
-        msg('구글 계정 확인 중... ' + sec + '초<br><span style="color:#94a3b8;font-size:0.78rem;">처음 로그인은 몇 초 걸립니다. 잠시만 기다려 주세요.</span>', 'info');
+  function myAccount() {
+    return client.rpc('my_account').then(function(r) {
+      if (r.error && /my_account|PGRST202|function/i.test((r.error.code || '') + ' ' + (r.error.message || ''))) {   // SQL 실행 전 호환
+        return client.rpc('my_role').then(function(r2) { if (r2.error) throw r2.error; return r2.data ? { role: r2.data, login_id: '', must_change: false } : null; });
       }
-    }, 1000);
-    call({ action: 'checkAccess', app: APP_KEY, credential: resp.credential }, function(d, err) {
-      clearInterval(_tick);
-      if (err) {
-        msg('인증 서버에 연결하지 못했습니다.<br><span style="color:#94a3b8;font-size:0.78rem;">' +
-            String(err.message || err) + '</span>', 'err');
-        return;
-      }
-      if (d && d.ok) {
-        saveSession(d);
-        publish();
-        msg('로그인 성공', 'ok');
-        setTimeout(function() {
-          var el = document.getElementById('mfgAuthOverlay');
-          if (el) el.remove();
-          document.body.style.overflow = '';
-          location.reload();
-        }, 400);
-        return;
-      }
-      var reason = (d && d.reason) || '접근 권한이 없습니다.';
-      var extra = '';
-      if (d && d.status === 'pending') {
-        extra = '<br><span style="color:#94a3b8;font-size:0.78rem;">관리자 승인 후 이용할 수 있습니다.</span>';
-      } else if (d && d.status === 'noapp') {
-        extra = '<br><span style="color:#94a3b8;font-size:0.78rem;">' + APP_NAME + ' 접근 권한을 요청하세요.</span>';
-      }
-      msg('<b>' + (p.email) + '</b><br>' + reason + extra, 'err');
+      if (r.error) throw r.error;
+      return r.data || null;
     });
   }
-
-  function initGsi() {
-    var n = 0;
-    var iv = setInterval(function() {
-      n++;
-      if (window.google && google.accounts && google.accounts.id) {
-        clearInterval(iv);
-        try {
-          google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onCredential });
-          google.accounts.id.renderButton(document.getElementById('mfgGsiBtn'),
-            { theme: 'filled_blue', size: 'large', shape: 'pill', width: 280, text: 'signin_with' });
-        } catch (e) {
-          msg('구글 로그인 버튼을 표시하지 못했습니다.', 'err');
-        }
-      }
-      if (n > 60) { clearInterval(iv); msg('구글 로그인 모듈을 불러오지 못했습니다. 네트워크를 확인하세요.', 'err'); }
-    }, 250);
+  function finishLogin(email, pw) {
+    return myAccount().then(function(a) {
+      if (!a || !a.role) { return client.auth.signOut().then(function() { throw { message: '승인되지 않은 계정입니다. 관리자에게 요청하세요.' }; }); }
+      setGuestFlag(false);
+      window.MFG_USER = { email: email, name: a.login_id || email, role: a.role, isAdmin: a.role === 'admin', logout: logout };
+      if (a.must_change) return firstPwChange(pw);
+      enterApp();
+    });
   }
-
-  function start() {
+  function enterApp() {
+    removeOverlay();
+    ensureGear();
+    resolveReady(window.MFG_USER);
+  }
+  // 처음 접속(또는 비밀번호 초기화 후): 본인 비밀번호로 바꿔야 앱이 열림
+  function firstPwChange(oldPw) {
     overlay();
-    initGsi();
-    try {
-      var rv = sessionStorage.getItem('mfg_revoked');
-      if (rv) { sessionStorage.removeItem('mfg_revoked'); msg(rv + '<br><span style="color:#94a3b8;font-size:0.78rem;">관리자에게 문의하세요.</span>', 'err'); }
-    } catch (e) {}
+    var f = $('mfgLoginForm'); if (!f) return;
+    if ($('mfgGuestBtn')) { $('mfgGuestBtn').nextSibling && $('mfgGuestBtn').nextSibling.remove(); $('mfgGuestBtn').remove(); }
+    $('mfgAuthSub').innerHTML = '<b style="color:#fff;">' + esc(window.MFG_USER.name) + '</b>님, 처음 접속입니다.<br>사용할 비밀번호로 바꿔 주세요.';
+    f.innerHTML =
+      (oldPw ? '' : '<input id="mfgPwOld" type="password" placeholder="받은 초기 비밀번호" autocomplete="current-password" style="' + inp + '">') +
+      '<input id="mfgPwNew" type="password" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password" style="' + inp + '">' +
+      '<input id="mfgPwNew2" type="password" placeholder="새 비밀번호 확인" autocomplete="new-password" style="' + inp + '">' +
+      '<button id="mfgLoginBtn" type="submit" style="' + btn + 'margin-top:0.25rem;">비밀번호 변경</button>' +
+      '<button id="mfgPwCancel" type="button" style="width:100%;padding:0.5rem;border:0;background:none;color:#94a3b8;font-size:0.8rem;cursor:pointer;">다른 이름으로 로그인</button>';
+    var fresh = f.cloneNode(true); f.parentNode.replaceChild(fresh, f); f = fresh;   // 로그인 submit 핸들러 제거
+    $('mfgAuthMsg').style.display = 'none';
+    $('mfgPwCancel').addEventListener('click', function() { client.auth.signOut().then(function() { location.reload(); }, function() { location.reload(); }); });
+    f.addEventListener('submit', function(ev) {
+      ev.preventDefault();
+      var o = oldPw || ($('mfgPwOld') && $('mfgPwOld').value) || '', n = $('mfgPwNew').value || '', n2 = $('mfgPwNew2').value || '';
+      if (!oldPw && !o) { msg('초기 비밀번호를 입력하세요.', 'err'); return; }
+      if (n.length < 6) { msg('새 비밀번호는 6자 이상이어야 합니다.', 'err'); return; }
+      if (n !== n2) { msg('새 비밀번호 확인이 다릅니다.', 'err'); return; }
+      $('mfgLoginBtn').disabled = true; msg('변경 중...', 'info');
+      client.rpc('change_my_password', { p_old: o, p_new: n }).then(function(r) {
+        if (r.error) throw r.error;
+        msg('비밀번호를 바꿨습니다.', 'ok');
+        setTimeout(enterApp, 400);
+      }).catch(function(e) { msg(errText(e), 'err'); var b = $('mfgLoginBtn'); if (b) b.disabled = false; });
+    });
+    ($('mfgPwOld') || $('mfgPwNew')).focus();
+  }
+  function doLogin() {
+    var id = ($('mfgEmail').value || '').trim(), pw = $('mfgPw').value || '';
+    if (!id || !pw) { msg('이름과 비밀번호를 입력하세요.', 'err'); return; }
+    var em = idToEmail(id);
+    if (!client) { msg('서버에 연결하지 못했습니다. 새로고침해 보세요.', 'err'); return; }
+    $('mfgLoginBtn').disabled = true; msg('확인 중...', 'info');
+    client.auth.signInWithPassword({ email: em, password: pw }).then(function(r) {
+      if (r.error) throw r.error;
+      try { localStorage.setItem(LAST_EMAIL, id); } catch (e) {}
+      return finishLogin(em, pw);
+    }).catch(function(e) { msg(errText(e), 'err'); })
+      .then(function() { var b = $('mfgLoginBtn'); if (b) b.disabled = false; });
+  }
+  function logout() {
+    if (!confirm('로그아웃 하시겠습니까?')) return;
+    var p = client ? client.auth.signOut() : Promise.resolve();
+    p.then(function() { location.reload(); }, function() { location.reload(); });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
-    start();
+  // ===== ⚙️ 계정 (로그아웃 · 승인 사용자 관리) =====
+  function ensureGear() {
+    if ($('mfgGear')) return;
+    var g = document.createElement('button');
+    g.id = 'mfgGear'; g.type = 'button'; g.title = '계정 / 로그아웃'; g.textContent = '⚙️';
+    g.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9000;width:38px;height:38px;border-radius:50%;border:1px solid #cbd5e1;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.15);cursor:pointer;font-size:18px;line-height:1;';
+    g.addEventListener('click', openSettings);
+    document.body.appendChild(g);
   }
+  function openSettings() {
+    if ($('mfgCfgModal')) return;
+    var u = window.MFG_USER;
+    var inpL = inp.replace('#0b1220', '#fff').replace('#e2e8f0', '#1e293b').replace('#475569', '#cbd5e1');
+    var sbtn = 'padding:0.3rem 0.7rem;border:1px solid #cbd5e1;border-radius:0.4rem;background:#fff;cursor:pointer;font-size:0.82rem;';
+    var m = document.createElement('div');
+    m.id = 'mfgCfgModal';
+    m.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,0.55);display:flex;align-items:center;justify-content:center;padding:1rem;font-family:Pretendard,"Malgun Gothic",-apple-system,sans-serif;';
+    m.innerHTML =
+      '<div style="background:#fff;border-radius:0.9rem;padding:1.25rem 1.4rem;width:100%;max-width:30rem;max-height:92vh;overflow:auto;color:#1e293b;font-size:0.9rem;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;"><b style="font-size:1.05rem;">⚙️ 계정</b><button id="mfgCfgClose" type="button" style="border:0;background:none;font-size:1.2rem;cursor:pointer;">✕</button></div>' +
+        (u ? '<div style="display:flex;justify-content:space-between;align-items:center;gap:0.4rem;padding:0.6rem 0.75rem;background:#f1f5f9;border-radius:0.5rem;margin-bottom:0.9rem;"><span>' + (u.isGuest ? '게스트 <span style="color:#64748b;font-size:0.8rem;">(보기 전용)</span>' : esc(u.name || u.email) + ' <span style="color:#64748b;font-size:0.8rem;">(' + (u.isAdmin ? '관리자' : '사용자') + ')</span>') + '</span><span style="display:flex;gap:0.3rem;">' +
+          (u.isGuest ? '' : '<button id="mfgPwBtn" type="button" style="' + sbtn + '">비밀번호 변경</button>') +
+          '<button id="mfgLogoutBtn" type="button" style="' + sbtn + '">' + (u.isGuest ? '로그인하기' : '로그아웃') + '</button></span></div>' : '') +
+        (u && !u.isGuest ? '<form id="mfgPwForm" style="display:none;flex-direction:column;gap:0.4rem;margin-bottom:0.9rem;">' +
+          '<input id="mfgPwCur" type="password" placeholder="현재 비밀번호" autocomplete="current-password" style="' + inpL + '">' +
+          '<input id="mfgPwN1" type="password" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password" style="' + inpL + '">' +
+          '<input id="mfgPwN2" type="password" placeholder="새 비밀번호 확인" autocomplete="new-password" style="' + inpL + '">' +
+          '<button type="submit" style="' + btn + '">변경</button><div id="mfgPwMsg" style="font-size:0.82rem;"></div></form>' : '') +
+        (u && u.isAdmin ? '<div style="font-weight:600;margin-bottom:0.3rem;">사용자</div><div id="mfgApprList" style="border:1px solid #e2e8f0;border-radius:0.5rem;max-height:16rem;overflow:auto;margin-bottom:0.5rem;"></div>' +
+          '<div style="display:flex;gap:0.4rem;flex-wrap:wrap;"><input id="mfgNewId" placeholder="이름" style="' + inpL + 'flex:1 1 6rem;"><input id="mfgNewPw" placeholder="초기 비밀번호" style="' + inpL + 'flex:1 1 6rem;"><select id="mfgApprRole" style="border:1px solid #cbd5e1;border-radius:0.5rem;padding:0 0.4rem;"><option value="user">사용자</option><option value="admin">관리자</option></select><button id="mfgApprAdd" type="button" style="' + btn + 'width:auto;padding:0.45rem 0.8rem;">추가</button></div>' +
+          '<div id="mfgAdmMsg" style="font-size:0.8rem;color:#64748b;margin-top:0.5rem;">초기 비밀번호를 알려주면, 처음 로그인할 때 본인 비밀번호로 바꾸게 됩니다.</div>' : '') +
+      '</div>';
+    document.body.appendChild(m);
+    $('mfgCfgClose').addEventListener('click', function() { m.remove(); });
+    m.addEventListener('click', function(ev) { if (ev.target === m) m.remove(); });
+    if ($('mfgLogoutBtn')) $('mfgLogoutBtn').addEventListener('click', u && u.isGuest ? u.logout : logout);
+    if ($('mfgPwBtn')) {
+      $('mfgPwBtn').addEventListener('click', function() { var f = $('mfgPwForm'); f.style.display = f.style.display === 'none' ? 'flex' : 'none'; if (f.style.display === 'flex') $('mfgPwCur').focus(); });
+      $('mfgPwForm').addEventListener('submit', function(ev) {
+        ev.preventDefault();
+        var o = $('mfgPwCur').value, n = $('mfgPwN1').value, n2 = $('mfgPwN2').value, out = $('mfgPwMsg');
+        var say = function(t, ok) { out.textContent = t; out.style.color = ok ? '#059669' : '#dc2626'; };
+        if (n.length < 6) return say('새 비밀번호는 6자 이상이어야 합니다.');
+        if (n !== n2) return say('새 비밀번호 확인이 다릅니다.');
+        client.rpc('change_my_password', { p_old: o, p_new: n }).then(function(r) {
+          if (r.error) return say(errText(r.error));
+          say('비밀번호를 바꿨습니다.', true); $('mfgPwCur').value = $('mfgPwN1').value = $('mfgPwN2').value = '';
+        });
+      });
+    }
+    if (u && u.isAdmin) {
+      var amsg = function(t, ok) { var el = $('mfgAdmMsg'); if (el) { el.textContent = t; el.style.color = ok ? '#059669' : '#dc2626'; } };
+      var list = function() {
+        client.from('approved_users').select('email,role,login_id,must_change').order('login_id').then(function(r) {
+          var el = $('mfgApprList'); if (!el) return;
+          if (r.error) { el.innerHTML = '<div style="padding:0.5rem;color:#dc2626;">' + esc(errText(r.error)) + '</div>'; return; }
+          el.innerHTML = (r.data || []).map(function(x) {
+            var me = x.email === u.email;
+            return '<div style="display:flex;justify-content:space-between;align-items:center;gap:0.4rem;padding:0.35rem 0.6rem;border-bottom:1px solid #f1f5f9;"><span>' + esc(x.login_id || x.email) +
+              ' <span style="color:#64748b;font-size:0.78rem;">' + (x.role === 'admin' ? '관리자' : '사용자') + (x.must_change ? ' · 첫 로그인 전' : '') + '</span></span><span style="display:flex;gap:0.6rem;">' +
+              '<button type="button" data-reset="' + esc(x.email) + '" data-name="' + esc(x.login_id || x.email) + '" style="border:0;background:none;color:#2563eb;cursor:pointer;font-size:0.82rem;">비밀번호 초기화</button>' +
+              (me ? '' : '<button type="button" data-del="' + esc(x.email) + '" data-name="' + esc(x.login_id || x.email) + '" style="border:0;background:none;color:#dc2626;cursor:pointer;font-size:0.82rem;">삭제</button>') + '</span></div>';
+          }).join('') || '<div style="padding:0.5rem;color:#64748b;">없음</div>';
+          el.querySelectorAll('button[data-reset]').forEach(function(b) {
+            b.addEventListener('click', function() {
+              var pw = prompt(b.getAttribute('data-name') + ' — 새 초기 비밀번호 (6자 이상):');
+              if (!pw) return;
+              client.rpc('admin_reset_password', { p_email: b.getAttribute('data-reset'), p_password: pw }).then(function(r2) {
+                if (r2.error) amsg('초기화 실패: ' + errText(r2.error)); else amsg(b.getAttribute('data-name') + ' 비밀번호를 초기화했습니다. 다음 로그인 때 본인 비밀번호로 바꾸게 됩니다.', true);
+                list();
+              });
+            });
+          });
+          el.querySelectorAll('button[data-del]').forEach(function(b) {
+            b.addEventListener('click', function() {
+              if (!confirm(b.getAttribute('data-name') + ' 계정을 삭제하시겠습니까?')) return;
+              client.rpc('admin_delete_user', { p_email: b.getAttribute('data-del') }).then(function(r2) { if (r2.error) amsg('삭제 실패: ' + errText(r2.error)); else amsg('삭제했습니다.', true); list(); });
+            });
+          });
+        });
+      };
+      list();
+      $('mfgApprAdd').addEventListener('click', function() {
+        var id = ($('mfgNewId').value || '').trim(), pw = $('mfgNewPw').value || '', role = $('mfgApprRole').value;
+        if (id.length < 2) { amsg('이름을 입력하세요.'); return; }
+        if (pw.length < 6) { amsg('초기 비밀번호는 6자 이상이어야 합니다.'); return; }
+        client.rpc('admin_create_user', { p_id: id, p_password: pw, p_role: role }).then(function(r) {
+          if (r.error) { amsg('추가 실패: ' + errText(r.error)); return; }
+          $('mfgNewId').value = ''; $('mfgNewPw').value = '';
+          amsg(id + ' 추가했습니다. 초기 비밀번호를 알려주세요.', true); list();
+        });
+      });
+    }
+  }
+
+  function boot() {
+    if (!client) { overlay(); msg('서버에 연결하지 못했습니다. 새로고침해 보세요.', 'err'); return; }
+    client.auth.getSession().then(function(r) {
+      var s = r && r.data && r.data.session;
+      if (s && s.user && s.user.email) return finishLogin(String(s.user.email).toLowerCase(), '');
+      if (ALLOW_GUEST && isGuestFlag()) { enterGuest(); return; }
+      overlay();
+    }).catch(function(e) { overlay(); msg(errText(e), 'err'); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 </script>
-<!-- ==================== /MFG 구글 인증 ==================== -->
+<!-- ==================== /MFG 서버 인증 ==================== -->
 </head>
 <body>
   <div id="root"></div>
   
   <!-- IndexedDB 헬퍼 (500MB 저장 지원) -->
   <script>
-    const DB_NAME = 'TCP_ProductionDB';
+    const DB_NAME = 'TCP_ProductionDB_SB';   // Supabase판 전용 (기존 앱과 분리)
     const DB_VERSION = 1;
     const STORE_NAME = 'appData';
     
@@ -1618,7 +1675,7 @@ function MFGProductionApp() {
   const [personnelSubTab, setPersonnelSubTab] = useState('manage');
   const [otVacationData, setOtVacationData] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('tcpOtVacationData') || '{}');
+      return JSON.parse(localStorage.getItem('tcpOtVacationData_sb') || '{}');
     } catch (e) {
       return {};
     }
@@ -1810,38 +1867,42 @@ function MFGProductionApp() {
     };
     loadData();
   }, []);
-  const autoLoadDriveRef = React.useRef(false);
   useEffect(() => {
     if (isLoading) return;
-    if (autoLoadDriveRef.current) return;
-    autoLoadDriveRef.current = true;
-    (async () => {
-      try {
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxLFrxbAaBt1bBa3SUdDY9wY48tvt85mEDaj3tiKhyw_R7oJCC9GbOWLfWbdSohnQtB/exec';
-        const PREFIX = 'tcp-backup-';
-        const listRes = await fetch(`${GAS_URL}?action=list&prefix=${PREFIX}&_=${Date.now()}`);   // V078: tcp-backup- 파일만 조회 (폴더 전체 훑기 방지)
-        const listJson = await listRes.json();
-        if (!listJson || !listJson.ok || !Array.isArray(listJson.files)) return;
-        const matches = listJson.files.filter(f => {
-          if (!f || !f.name || f.name.indexOf(PREFIX) !== 0) return false;
-          const n = f.name.toLowerCase();
-          return n.endsWith('.json') || n.endsWith('.json.gz');
-        });
-        if (matches.length === 0) return;
-        const __byMod = (a, b) => {
-          const ta = a.modified ? new Date(a.modified).getTime() : 0;
-          const tb = b.modified ? new Date(b.modified).getTime() : 0;
-          return tb - ta;
-        };
-        // 압축본(.json.gz) 우선 — 있으면 그 중 최신, 없으면 비압축 최신
-        const __gz = matches.filter(f => f.name.toLowerCase().endsWith('.json.gz'));
-        const latest = (__gz.length > 0 ? __gz.sort(__byMod) : matches.sort(__byMod))[0];
-        const loadRes = await fetch(`${GAS_URL}?action=load&id=${encodeURIComponent(latest.id)}`);
-        const loadJson = await loadRes.json();
-        if (!loadJson || !loadJson.ok || loadJson.data == null) return;
-        const data = await __normalizeBackup(loadJson.data);
-        if (!data) return;
-        console.log('Drive 최신본 로드 적용');
+    const saveData = async () => {
+      const dataToSave = {
+        productionLogs,
+        downtimeLogs,
+        defectLogs,
+        processDefectLogs,
+        reworkLogs,
+        settings,
+        employees,
+        oeeTargets,
+        lineAssignments,
+        slotStatus,
+        skillData,
+        absenceReasons,
+        lotData,
+        otVacationData,
+        rosterV2
+      };
+      const success = await saveToIndexedDB('mfgAppData', {
+        ...dataToSave,
+        savedAt: Date.now()
+      });
+      if (success) {
+        setLastSaved(new Date().toLocaleTimeString());
+        const size = await getStorageSize();
+        setStorageSize(size);
+      }
+    };
+    const timer = setTimeout(saveData, 500);
+    return () => clearTimeout(timer);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, rosterV2, isLoading]);
+  // 백업 JSON(data) 전체를 화면 상태에 적용 — 파일 불러오기·Google 가져오기 공용
+  const applyBackupData = data => {
+
         const defaultDefectCodes = ['A(치수)', 'B(갈라짐)', 'C(파손)', 'D(이물질)', 'DF(Door힘)', 'E(Burr)', 'ES(ESTest)', 'F(미성형)', 'G(형상)', 'H(긁힘)', 'J(도금)', 'K(원인)', 'L(녹)', 'M(혼입)', 'N(가공)', 'O(색상)', 'OP', 'P(공정)', 'PM(설비)', 'R(찢어짐)', 'T(공정누락)', 'U(미판정)', 'VF(Flow)', 'VJ(Endplav 치수)', 'VL(Leak)', 'WP(이종품)'];
         const loadedTCP = data.settings && data.settings.TCP ? data.settings.TCP : {};
         const loadedFE = data.settings && data.settings.FE ? data.settings.FE : {};
@@ -1887,100 +1948,288 @@ function MFGProductionApp() {
         setLotHiddenBoms(data.lotHiddenBoms || {});
         setOtVacationData(data.otVacationData || {});
           setRosterV2(data.rosterV2 || {});
-        setFormError('✅ 자동 적용');
-      } catch (err) {
-        console.warn('Drive 자동 로드 스킵:', err);
-      }
-    })();
-  }, [isLoading]);
-  useEffect(() => {
-    if (isLoading) return;
-    const saveData = async () => {
-      const dataToSave = {
-        productionLogs,
-        downtimeLogs,
-        defectLogs,
-        processDefectLogs,
-        reworkLogs,
-        settings,
-        employees,
-        oeeTargets,
-        lineAssignments,
-        slotStatus,
-        skillData,
-        absenceReasons,
-        lotData,
-        otVacationData,
-        rosterV2
-      };
-      const success = await saveToIndexedDB('mfgAppData', {
-        ...dataToSave,
-        savedAt: Date.now()
-      });
-      if (success) {
-        setLastSaved(new Date().toLocaleTimeString());
-        const size = await getStorageSize();
-        setStorageSize(size);
-      }
+  };
+  // ===================== 서버(Supabase) 동기화 =====================
+  //  · 생산일지·비가동·불량·재작업 → prod_logs (건별 행, 삭제는 deleted_at 표시)
+  //  · 설정·인원·OEE목표·인원편성·Lot 등 → prod_state (키별 JSON)
+  //  · 시작: 서버 전체 받기(서버가 비어 있으면 이 PC 데이터를 처음 올림)
+  //  · 변경: 1.5초 뒤 바뀐 행만 upsert   · 60초마다/창 복귀 시: 서버 변경분만 받아 합침
+  const SB_SECTION = 'TCP';
+  const SB_LOG_KINDS = { production: 'productionLogs', downtime: 'downtimeLogs', defect: 'defectLogs', rework: 'reworkLogs' };
+  const SB_STATE_KEYS = ['settings', 'employees', 'oeeTargets', 'lineAssignments', 'slotStatus', 'skillData', 'absenceReasons', 'lotData', 'lotHiddenBoms', 'otVacationData', 'rosterV2'];
+  const [sbStatus, setSbStatus] = useState({ st: 'init', msg: '서버 연결 중…' });
+  const sbRef = React.useRef({ ready: false, synced: { logs: new Map(), state: new Map() }, lastPull: '1970-01-01T00:00:00Z', pushing: false, pending: false, fails: 0 });
+  const latestRef = React.useRef({});
+  latestRef.current = { productionLogs, downtimeLogs, defectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, lotHiddenBoms, otVacationData, rosterV2 };
+  const sbSetters = { productionLogs: setProductionLogs, downtimeLogs: setDowntimeLogs, defectLogs: setDefectLogs, reworkLogs: setReworkLogs, settings: setSettings, employees: setEmployees, oeeTargets: setOeeTargets, lineAssignments: setLineAssignments, slotStatus: setSlotStatus, skillData: setSkillData, absenceReasons: setAbsenceReasons, lotData: setLotData, lotHiddenBoms: setLotHiddenBoms, otVacationData: setOtVacationData, rosterV2: setRosterV2 };
+  const sbClient = () => window.MFG_SB || null;
+  const sbEmail = () => (window.MFG_USER && window.MFG_USER.email) || '';
+  // 서버(jsonb)는 키 순서를 바꿔 저장하므로, 비교는 키를 정렬한 문자열로 (순서만 다른 것은 같은 것으로)
+  const sbCanon = v => JSON.stringify(v, (k, val) => (val && typeof val === 'object' && !Array.isArray(val)) ? Object.keys(val).sort().reduce((o, kk) => { o[kk] = val[kk]; return o; }, {}) : val);
+  const sbErr = e => (e && (e.message || e.error_description || (typeof e === 'string' ? e : JSON.stringify(e)))) || '오류';
+  const sbMaxTs = (rows, cur) => rows.reduce((m, r) => (r.updated_at && r.updated_at > m ? r.updated_at : m), cur || '1970-01-01T00:00:00Z');
+  // 화면 잠금: 서버 최신 데이터를 다 받기 전에는 입력하지 못하게
+  const sbGate = (msg, retry) => {
+    let el = document.getElementById('mfgSbGate');
+    if (!msg) { if (el) el.remove(); return; }
+    if (!el) {
+      el = document.createElement('div'); el.id = 'mfgSbGate';
+      el.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(15,23,42,0.72);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:1rem;';
+      document.body.appendChild(el);
+    }
+    el.innerHTML = '<div style="background:#fff;border-radius:0.9rem;padding:1.6rem 2rem;min-width:18rem;max-width:26rem;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.35);">'
+      + (retry ? '<div style="font-size:2rem;margin-bottom:0.4rem;">⚠️</div>' : '<div style="width:34px;height:34px;border:4px solid #c7d2fe;border-top-color:#4f46e5;border-radius:50%;margin:0 auto 0.8rem;animation:mfgspin 0.9s linear infinite;"></div><style>@keyframes mfgspin{to{transform:rotate(360deg)}}</style>')
+      + '<div style="font-weight:700;color:#1e293b;font-size:1rem;">' + (retry ? '서버에서 데이터를 불러오지 못했습니다' : '서버에서 최신 데이터를 불러오는 중…') + '</div>'
+      + '<div id="mfgSbGateMsg" style="color:#64748b;font-size:0.85rem;margin-top:0.4rem;word-break:break-all;">' + msg + '</div>'
+      + (retry ? '<button id="mfgSbGateRetry" type="button" style="margin-top:1rem;padding:0.5rem 1.2rem;border:0;border-radius:0.5rem;background:#4f46e5;color:#fff;font-weight:600;cursor:pointer;">다시 시도</button>' : '<div style="color:#94a3b8;font-size:0.75rem;margin-top:0.8rem;">다 받으면 자동으로 열립니다</div>')
+      + '</div>';
+    if (retry) document.getElementById('mfgSbGateRetry').onclick = retry;
+  };
+  const sbGateMsg = m => { const el = document.getElementById('mfgSbGateMsg'); if (el) el.textContent = m; };
+  // 1,000건씩 나눠 받되 6쪽씩 동시에 (기본키 순으로 나눠서 받는 중에 수정돼도 순서가 안 바뀜)
+  const sbFetchAll = async (client, table, mod, onPage) => {
+    const PAGE = 1000, PAR = 4;
+    const cols = table === 'prod_logs' ? 'kind,id,data,updated_at,deleted_at' : 'key,data,updated_at';
+    const q = (from, withCount) => {
+      let x = client.from(table).select(cols, withCount ? { count: 'exact' } : undefined).eq('section', SB_SECTION);
+      x = mod ? mod(x) : x;
+      x = table === 'prod_logs' ? x.order('kind', { ascending: true }).order('id', { ascending: true }) : x.order('key', { ascending: true });
+      return x.range(from, from + PAGE - 1);
     };
-    const timer = setTimeout(saveData, 500);
-    return () => clearTimeout(timer);
-  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, rosterV2, isLoading]);
-  const driveAutoBackupRef = React.useRef(false);
-  useEffect(() => {
-    if (isLoading) return;
-    if (!driveAutoBackupRef.current) {
-      driveAutoBackupRef.current = true;
+    // 한 쪽이 실패하면 1초·2초 쉬고 3번까지 다시
+    const qr = async (from, withCount) => { let last; for (let t = 0; t < 3; t++) { if (t) await new Promise(r => setTimeout(r, 1000 * t)); const r = await q(from, withCount); if (!r.error) return r; last = r; } return last; };
+    const first = await qr(0, true);
+    if (first.error) throw first.error;
+    const out = (first.data || []).slice();
+    const total = first.count;
+    if (onPage) onPage(out.length, total || out.length);
+    if (total == null) {
+      for (let f = PAGE; out.length === f; f += PAGE) { const r = await qr(f); if (r.error) throw r.error; out.push(...(r.data || [])); if (onPage) onPage(out.length, out.length); if (!r.data || r.data.length < PAGE) break; }
+      return out;
+    }
+    const offs = []; for (let f = PAGE; f < total; f += PAGE) offs.push(f);
+    let i = 0;
+    const worker = async () => { while (i < offs.length) { const f = offs[i++]; const r = await qr(f); if (r.error) throw r.error; out.push(...(r.data || [])); if (onPage) onPage(out.length, total); } };
+    await Promise.all(Array.from({ length: Math.min(PAR, offs.length) }, worker));
+    return out;
+  };
+  // 서버에서 받은 상태를 이 PC에 보관 → 다음에 열 때는 바뀐 것만 받음
+  const SB_CACHE_KEY = 'sbSyncCache';
+  const sbCacheTimer = React.useRef(null);
+  const sbCacheSave = () => {
+    clearTimeout(sbCacheTimer.current);
+    sbCacheTimer.current = setTimeout(() => {
+      const S = sbRef.current; const client = sbClient(); if (!S.ready || !client) return;
+      saveToIndexedDB(SB_CACHE_KEY, { v: 1, url: client.supabaseUrl || '', section: SB_SECTION, logs: Array.from(S.synced.logs.entries()), state: Array.from(S.synced.state.entries()), lastPull: S.lastPull, savedAt: Date.now() }).catch(() => {});
+    }, 2000);
+  };
+  const sbRowDate = (kind, row, prodById) => {
+    if (kind === 'production') return row.productionDate || null;
+    const p = prodById.get(String(row.productionLogId));
+    return p ? (p.productionDate || null) : null;
+  };
+  // 바뀐 것만 서버에 올리기
+  const sbPush = async force => {
+    const S = sbRef.current; const client = sbClient();
+    if (!client || !S.ready) return;
+    if (S.pushing) { S.pending = true; return; }
+    S.pushing = true;
+    try {
+      const L = latestRef.current; const now = new Date().toISOString(); const me = sbEmail();
+      const prodById = new Map((L.productionLogs || []).map(p => [String(p.id), p]));
+      const ups = [], seen = new Set();
+      Object.entries(SB_LOG_KINDS).forEach(([kind, arrKey]) => {
+        (L[arrKey] || []).forEach(row => {
+          if (row == null || row.id == null) return;
+          const id = String(row.id), key = kind + ':' + id;
+          if (seen.has(key)) return;   // 같은 id 중복 방지
+          seen.add(key);
+          const js = sbCanon(row);
+          if (S.synced.logs.get(key) === js) return;
+          ups.push({ id, section: SB_SECTION, kind, date: sbRowDate(kind, row, prodById), parent_id: kind === 'production' ? null : (row.productionLogId != null ? String(row.productionLogId) : null), data: row, updated_at: now, updated_by: me, deleted_at: null });
+        });
+      });
+      const dels = [];
+      S.synced.logs.forEach((js, key) => {
+        if (seen.has(key)) return;
+        const i = key.indexOf(':');
+        dels.push({ id: key.slice(i + 1), section: SB_SECTION, kind: key.slice(0, i), data: JSON.parse(js), updated_at: now, updated_by: me, deleted_at: now });
+      });
+      const sts = [];
+      SB_STATE_KEYS.forEach(k => { const v = L[k]; if (v === undefined) return; const js = sbCanon(v); if (S.synced.state.get(k) === js) return; sts.push({ section: SB_SECTION, key: k, data: v, updated_at: now, updated_by: me }); });
+      if (!ups.length && !dels.length && !sts.length) { if (force) setSbStatus({ st: 'ok', msg: '서버 동기화 ' + new Date().toLocaleTimeString() }); return; }
+      setSbStatus({ st: 'saving', msg: '서버 저장 중… (' + (ups.length + dels.length + sts.length) + '건)' });
+      const CH = 300;
+      for (let i = 0; i < ups.length; i += CH) { const { error } = await client.from('prod_logs').upsert(ups.slice(i, i + CH), { onConflict: 'section,kind,id' }); if (error) throw error; }
+      for (let i = 0; i < dels.length; i += CH) { const { error } = await client.from('prod_logs').upsert(dels.slice(i, i + CH), { onConflict: 'section,kind,id' }); if (error) throw error; }
+      if (sts.length) { const { error } = await client.from('prod_state').upsert(sts, { onConflict: 'section,key' }); if (error) throw error; }
+      ups.forEach(r => S.synced.logs.set(r.kind + ':' + r.id, sbCanon(r.data)));
+      dels.forEach(r => S.synced.logs.delete(r.kind + ':' + r.id));
+      sts.forEach(r => S.synced.state.set(r.key, sbCanon(r.data)));
+      S.fails = 0;
+      sbCacheSave();
+      setSbStatus({ st: 'ok', msg: '서버 저장 ' + new Date().toLocaleTimeString() + ' (' + (ups.length + dels.length + sts.length) + '건)' });
+    } catch (e) {
+      console.error('서버 저장 실패', e);
+      S.fails++;
+      setSbStatus({ st: 'error', msg: '서버 저장 실패: ' + sbErr(e) + (S.fails < 3 ? ' — 다시 시도 중' : ' — 입력을 바꾸면 다시 시도') });
+      if (S.fails < 3) S.pending = true;
+    } finally {
+      S.pushing = false;
+      if (S.pending) { S.pending = false; setTimeout(() => sbPush(false), 3000); }
+    }
+  };
+  // 서버 변경분 받아 합치기 (다른 PC의 입력)
+  const sbPullDelta = async strict => {
+    const S = sbRef.current; const client = sbClient();
+    if (!client || !S.ready || (S.pushing && !strict)) return;
+    try {
+      const since = S.lastPull;
+      const logs = await sbFetchAll(client, 'prod_logs', q => q.gt('updated_at', since));
+      const states = await sbFetchAll(client, 'prod_state', q => q.gt('updated_at', since));
+      let changed = 0; const byKind = {};
+      logs.forEach(r => {
+        const key = r.kind + ':' + r.id; const js = r.deleted_at ? null : sbCanon(r.data);
+        const prev = S.synced.logs.has(key) ? S.synced.logs.get(key) : null;
+        if (prev === js) return;
+        (byKind[r.kind] = byKind[r.kind] || []).push(r);
+      });
+      Object.entries(byKind).forEach(([kind, rows]) => {
+        const arrKey = SB_LOG_KINDS[kind]; if (!arrKey) return;
+        sbSetters[arrKey](prev => { const m = new Map((prev || []).map(x => [String(x.id), x])); rows.forEach(r => { if (r.deleted_at) m.delete(String(r.id)); else m.set(String(r.id), r.data); }); return Array.from(m.values()); });
+        rows.forEach(r => { const key = kind + ':' + r.id; if (r.deleted_at) S.synced.logs.delete(key); else S.synced.logs.set(key, sbCanon(r.data)); changed++; });
+      });
+      states.forEach(r => { const js = sbCanon(r.data); if (S.synced.state.get(r.key) === js) return; if (sbSetters[r.key]) { sbSetters[r.key](r.data); S.synced.state.set(r.key, js); changed++; } });
+      S.lastPull = sbMaxTs(logs.concat(states), S.lastPull);
+      if (changed) { setSbStatus({ st: 'ok', msg: '서버에서 갱신 ' + new Date().toLocaleTimeString() + ' (' + changed + '건)' }); sbCacheSave(); }
+      else if (sbStatus.st === 'error' || strict) setSbStatus({ st: 'ok', msg: '서버 연결됨 ' + new Date().toLocaleTimeString() });
+      return changed;
+    } catch (e) { console.warn('서버 변경 확인 실패', e); setSbStatus({ st: 'error', msg: '서버 연결 실패: ' + sbErr(e) }); if (strict) throw e; }
+  };
+  // 시작: 서버 전체 받기
+  const sbPullAll = async () => {
+    const S = sbRef.current; const client = sbClient(); if (!client) return;
+    setSbStatus({ st: 'loading', msg: '서버에서 불러오는 중…' });
+    sbGate('연결 중…');
+    // 이 PC에 보관본이 있으면: 보관본을 바로 적용하고 서버에서 바뀐 것만 받음
+    let cache = null;
+    try { cache = await loadFromIndexedDB(SB_CACHE_KEY); } catch (e) {}
+    if (cache && cache.v === 1 && cache.section === SB_SECTION && cache.url === (client.supabaseUrl || '') && cache.lastPull && Date.now() - (cache.savedAt || 0) < 3 * 24 * 3600 * 1000) {
+      try {
+        sbGateMsg('이 PC 보관본 적용 중…');
+        S.synced.logs = new Map(cache.logs || []); S.synced.state = new Map(cache.state || []);
+        const arrs = { productionLogs: [], downtimeLogs: [], defectLogs: [], reworkLogs: [] };
+        S.synced.logs.forEach((js, key) => { const k = SB_LOG_KINDS[key.slice(0, key.indexOf(':'))]; if (k) arrs[k].push(JSON.parse(js)); });
+        Object.keys(arrs).forEach(k => sbSetters[k](arrs[k]));
+        setProcessDefectLogs([]);
+        S.synced.state.forEach((js, key) => { if (sbSetters[key]) sbSetters[key](JSON.parse(js)); });
+        S.lastPull = cache.lastPull; S.ready = true;
+        sbGateMsg('서버에서 바뀐 것만 받는 중…');
+        const n = await sbPullDelta(true);
+        setSbStatus({ st: 'ok', msg: '서버 불러옴 ' + new Date().toLocaleTimeString() + ' (바뀐 ' + (n || 0) + '건)' });
+        sbCacheSave();
+        sbGate(null);
+        return;
+      } catch (e) { console.warn('보관본으로 시작 실패 — 전체 다시 받기', e); S.ready = false; }
+    }
+    const logs = await sbFetchAll(client, 'prod_logs', q => q.is('deleted_at', null), (n, t) => sbGateMsg('생산 기록 ' + n.toLocaleString() + ' / ' + (t || n).toLocaleString() + '건 받는 중…'));
+    sbGateMsg('설정·인원 받는 중…');
+    const states = await sbFetchAll(client, 'prod_state');
+    S.synced.logs = new Map(); S.synced.state = new Map();
+    if (logs.length === 0 && states.length === 0) {
+      // 서버가 비어 있음 → 이 PC(브라우저)에 있던 데이터를 처음으로 올림
+      S.lastPull = '1970-01-01T00:00:00Z'; S.ready = true;
+      setSbStatus({ st: 'saving', msg: '서버가 비어 있어 이 PC 데이터를 올리는 중…' });
+      sbGateMsg('서버가 비어 있어 이 PC 데이터를 올리는 중…');
+      await sbPush(true);
+      sbGate(null);
       return;
     }
-    const timer = setTimeout(async () => {
+    const arrs = { productionLogs: [], downtimeLogs: [], defectLogs: [], reworkLogs: [] };
+    const seenKeys = new Set();   // 같은 행이 두 번 와도 한 번만
+    logs.forEach(r => { const k = SB_LOG_KINDS[r.kind]; if (!k) return; const key = r.kind + ':' + r.id; if (seenKeys.has(key)) return; seenKeys.add(key); arrs[k].push(r.data); S.synced.logs.set(key, sbCanon(r.data)); });
+    Object.keys(arrs).forEach(k => sbSetters[k](arrs[k]));
+    setProcessDefectLogs([]);
+    states.forEach(r => { if (sbSetters[r.key]) { sbSetters[r.key](r.data); S.synced.state.set(r.key, sbCanon(r.data)); } });
+    S.lastPull = sbMaxTs(logs.concat(states), '1970-01-01T00:00:00Z');
+    S.ready = true;
+    sbCacheSave();
+    setSbStatus({ st: 'ok', msg: '서버 불러옴 ' + new Date().toLocaleTimeString() + ' (' + logs.length + '건)' });
+    sbGate(null);
+  };
+  // 로그인 완료 + 로컬 로드 완료 후 시작
+  const sbStartedRef = React.useRef(false);
+  useEffect(() => {
+    if (isLoading || sbStartedRef.current) return;
+    sbStartedRef.current = true;
+    let timer = null;
+    const start = async () => {
       try {
-        const dataToSave = {
-          productionLogs,
-          downtimeLogs,
-          defectLogs,
-          processDefectLogs,
-          reworkLogs,
-          settings,
-          employees,
-          oeeTargets,
-          lineAssignments,
-          slotStatus,
-          skillData,
-          absenceReasons,
-          lotData,
-          otVacationData,
-          rosterV2,
-          savedAt: Date.now()
-        };
-        const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxLFrxbAaBt1bBa3SUdDY9wY48tvt85mEDaj3tiKhyw_R7oJCC9GbOWLfWbdSohnQtB/exec';
-        let filename, payloadData;
-        if (typeof CompressionStream !== 'undefined') {
-          payloadData = await __gzipToB64(dataToSave);
-          filename = `tcp-backup-${ts}.json.gz`;
-        } else {
-          payloadData = dataToSave;
-          filename = `tcp-backup-${ts}.json`;
-        }
-        await fetch(GAS_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-          },
-          body: JSON.stringify({
-            filename,
-            data: payloadData
-          })
-        });
-        console.log('Drive 자동 백업 완료:', ts, typeof CompressionStream !== 'undefined' ? '(압축)' : '');
-        __pruneOldBackups(GAS_URL, 'tcp-backup-', 30);
+        sbGate('로그인 확인 중…');
+        if (window.__sbReady) await window.__sbReady;
+        await sbPullAll();
       } catch (e) {
-        console.warn('Drive 자동 백업 실패:', e);
+        console.error('서버 불러오기 실패', e);
+        setSbStatus({ st: 'error', msg: '서버 불러오기 실패: ' + sbErr(e) });
+        sbGate(sbErr(e), start);   // 최신 데이터 없이는 화면을 열지 않음
+        return;
       }
-    }, 30000);
-    return () => clearTimeout(timer);
-  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, otVacationData, rosterV2, isLoading]);
+      timer = setInterval(() => { if (document.visibilityState === 'visible') sbPullDelta(); }, 60000);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sbPullDelta(); });
+    };
+    start();
+    return () => { if (timer) clearInterval(timer); };
+  }, [isLoading]);
+  // 변경 → 1.5초 뒤 서버에 올림
+  useEffect(() => {
+    if (isLoading || !sbRef.current.ready) return;
+    const t = setTimeout(() => sbPush(false), 1500);
+    return () => clearTimeout(t);
+  }, [productionLogs, downtimeLogs, defectLogs, processDefectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, lotHiddenBoms, otVacationData, rosterV2, isLoading]);
+  // 백업: 서버 데이터를 Google 공유저장소에 백업 파일로 남김 — 모든 PC 통틀어 3시간에 1개, 최근 60개 보관
+  const sbDriveBkRef = React.useRef(0);
+  useEffect(() => {
+    if (isLoading || !sbRef.current.ready) return;
+    const t = setTimeout(async () => {
+      if (Date.now() - sbDriveBkRef.current < 30 * 60000) return;   // 이 PC는 30분에 한 번만 확인
+      sbDriveBkRef.current = Date.now();
+      try {
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxLFrxbAaBt1bBa3SUdDY9wY48tvt85mEDaj3tiKhyw_R7oJCC9GbOWLfWbdSohnQtB/exec';
+        const pre = SB_SECTION.toLowerCase() + '-backup-';
+        const lj = await (await fetch(GAS_URL + '?action=list&prefix=' + pre + '&limit=3&_=' + Date.now())).json();
+        const newest = ((lj && lj.files) || []).map(f => new Date(f.modified).getTime()).filter(x => x > 0).sort((a, b) => b - a)[0] || 0;
+        if (Date.now() - newest < 3 * 3600000) return;
+        const L = latestRef.current;
+        const data = { ...L, processDefectLogs: [], savedAt: Date.now(), source: 'server' };
+        const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+        const gz = typeof CompressionStream !== 'undefined';
+        await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ filename: pre + ts + (gz ? '.json.gz' : '.json'), data: gz ? await __gzipToB64(data) : data }) });
+        console.log('공유저장소 백업 완료', pre + ts);
+        __pruneOldBackups(GAS_URL, pre, 60);
+      } catch (e) { console.warn('공유저장소 백업 실패 (다음에 다시 시도)', e); sbDriveBkRef.current = Date.now() - 20 * 60000; }
+    }, 60000);
+    return () => clearTimeout(t);
+  }, [productionLogs, downtimeLogs, defectLogs, reworkLogs, settings, employees, oeeTargets, lineAssignments, slotStatus, skillData, absenceReasons, lotData, lotHiddenBoms, otVacationData, rosterV2, isLoading]);
+  // Google 공유저장소의 최신 백업을 가져와 서버 데이터로 교체 (관리자, 이관용)
+  const importFromGoogle = async () => {
+    if (!confirm('Google 공유저장소의 최신 TCP 백업을 가져와 이 서버의 데이터로 바꿉니다.\n(Google 원본은 변경하지 않습니다. 이 서버에만 있던 입력은 사라집니다.)\n\n진행할까요?')) return;
+    try {
+      setFormError('⏳ Google 백업 목록 확인 중...');
+      const GAS_URL = 'https://script.google.com/macros/s/AKfycbxLFrxbAaBt1bBa3SUdDY9wY48tvt85mEDaj3tiKhyw_R7oJCC9GbOWLfWbdSohnQtB/exec';
+      const lj = await (await fetch(GAS_URL + '?action=list&prefix=tcp-backup-&_=' + Date.now())).json();
+      const files = ((lj && lj.files) || []).filter(f => f && f.name && f.size > 0).sort((a, b) => new Date(b.modified) - new Date(a.modified));
+      const gz = files.filter(f => f.name.toLowerCase().endsWith('.json.gz'));
+      const latest = (gz.length ? gz : files)[0];
+      if (!latest) throw new Error('Google에 TCP 백업 파일이 없습니다.');
+      setFormError('⏳ ' + latest.name + ' 내려받는 중...');
+      const j = await (await fetch(GAS_URL + '?action=load&id=' + encodeURIComponent(latest.id) + '&_=' + Date.now())).json();
+      if (!j || !j.ok || j.data == null) throw new Error('내려받기 실패');
+      const data = await __normalizeBackup(j.data);
+      if (!data) throw new Error('백업 파일을 읽지 못했습니다.');
+      applyBackupData(data);
+      setFormError('✅ Google 백업 적용 (' + latest.name + ') — 서버에 저장 중...');
+    } catch (e) { setFormError('❌ Google 백업 가져오기 실패: ' + sbErr(e)); }
+  };
   const addEmployee = () => {
     if (!newEmployeeName.trim()) {
       setFormError('이름을 입력해주세요.');
@@ -4255,7 +4504,7 @@ function MFGProductionApp() {
       className: "text-gray-500"
     }, "데이터를 불러오는 중... ", React.createElement("span", {
       className: "text-xs font-mono text-gray-400"
-    }, "V079"))));
+    }, "V087S"))));
   }
   return React.createElement("div", {
     className: "w-full h-screen bg-gray-100 flex flex-col",
@@ -4303,7 +4552,7 @@ function MFGProductionApp() {
     className: "text-2xl font-bold"
   }, "TCP 생산관리 시스템"), React.createElement("span", {
     className: "ml-2 px-2 py-0.5 bg-white/20 rounded text-xs font-mono font-bold align-middle"
-  }, "V079")), React.createElement("div", {
+  }, "V087S")), React.createElement("div", {
     className: "text-right"
   }, React.createElement("div", {
     className: "text-sm opacity-80"
@@ -4320,9 +4569,18 @@ function MFGProductionApp() {
     className: "text-xs"
   }, "(", storageInfo.percent, "%)")), lastSaved && React.createElement("span", {
     className: "text-xs bg-green-500 px-2 py-0.5 rounded-full"
-  }, "✓ 자동저장 ", lastSaved)), React.createElement("div", {
+  }, "✓ 자동저장 ", lastSaved), React.createElement("span", {
+    className: "text-xs px-2 py-0.5 rounded-full cursor-pointer " + (sbStatus.st === 'ok' ? 'bg-emerald-500' : sbStatus.st === 'error' ? 'bg-red-500' : 'bg-slate-500'),
+    title: sbStatus.msg + ' — 클릭하면 서버 변경분을 바로 확인',
+    onClick: () => sbPullDelta()
+  }, "☁ ", sbStatus.msg)), React.createElement("div", {
     className: "flex items-center justify-end gap-2 mt-2"
-  }, React.createElement("button", {
+  }, window.MFG_USER && window.MFG_USER.isAdmin && React.createElement("button", {
+    type: "button",
+    onClick: importFromGoogle,
+    className: "px-3 py-1 bg-slate-600 hover:bg-slate-700 text-white text-xs rounded-lg font-medium transition-colors",
+    title: "Google 공유저장소의 최신 TCP 백업을 가져와 이 서버 데이터로 바꿉니다 (Google 원본은 그대로)"
+  }, "📦 Google 백업 가져오기"), React.createElement("button", {
     type: "button",
     onClick: async () => {
       const now = new Date();
@@ -4348,35 +4606,8 @@ function MFGProductionApp() {
       const jsonStr = JSON.stringify(dataToSave, null, 2);
       const filename = `tcp-backup-${timestamp}.json`;
       setFormError('⏳ 저장 중...');
-      let driveOk = false;
-      try {
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxLFrxbAaBt1bBa3SUdDY9wY48tvt85mEDaj3tiKhyw_R7oJCC9GbOWLfWbdSohnQtB/exec';
-        // 드라이브(공유저장소) 저장은 압축 → MFGreport 로딩 빠름. 로컬 파일(jsonStr)은 비압축 유지.
-        const __saveObj = { ...dataToSave, savedAt: Date.now() };
-        let __driveFilename, __driveData;
-        if (typeof CompressionStream !== 'undefined') {
-          __driveData = await __gzipToB64(__saveObj);
-          __driveFilename = `tcp-backup-${timestamp}.json.gz`;
-        } else {
-          __driveData = __saveObj;
-          __driveFilename = filename;
-        }
-        const res = await fetch(GAS_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-          },
-          body: JSON.stringify({
-            filename: __driveFilename,
-            data: __driveData
-          })
-        });
-        const j = await res.json();
-        driveOk = !!j.ok;
-        if (driveOk) __pruneOldBackups(GAS_URL, 'tcp-backup-', 30);
-      } catch (err) {
-        driveOk = false;
-      }
+      // Supabase판: 서버에는 자동 동기화되므로 여기서는 로컬 파일만 저장
+      const driveOk = true;
       if (!driveOk) {
         setFormError('❌ 저장 실패. 네트워크를 확인하고 다시 시도해주세요.');
         return;
