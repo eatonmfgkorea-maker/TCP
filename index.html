@@ -17,7 +17,7 @@
 <script>
 (function() {
   var APP_NAME = 'TCP 생산관리 시스템';
-  var APP_VER = 'V088S';
+  var APP_VER = 'V089S';
   var SB_DEFAULT_URL = 'https://tmbeaswlpvsyjehacgsa.supabase.co';
   var SB_DEFAULT_KEY = 'sb_publishable_OM6ITpYn8LYPWXXhwdA4kQ_HuAyAxV9';
   var CFG_KEY = 'mfg-sb-test-cfg', AUTH_KEY = 'mfg-sb-test-auth', LAST_EMAIL = 'mfg-sb-test-last-email';
@@ -4475,7 +4475,7 @@ function MFGProductionApp() {
       className: "text-gray-500"
     }, "데이터를 불러오는 중... ", React.createElement("span", {
       className: "text-xs font-mono text-gray-400"
-    }, "V088S"))));
+    }, "V089S"))));
   }
   return React.createElement("div", {
     className: "w-full h-screen bg-gray-100 flex flex-col",
@@ -4523,7 +4523,7 @@ function MFGProductionApp() {
     className: "text-2xl font-bold"
   }, "TCP 생산관리 시스템"), React.createElement("span", {
     className: "ml-2 px-2 py-0.5 bg-white/20 rounded text-xs font-mono font-bold align-middle"
-  }, "V088S")), React.createElement("div", {
+  }, "V089S")), React.createElement("div", {
     className: "text-right"
   }, React.createElement("div", {
     className: "text-sm opacity-80"
@@ -4546,12 +4546,7 @@ function MFGProductionApp() {
     onClick: () => sbPullDelta()
   }, "☁ ", sbStatus.msg)), React.createElement("div", {
     className: "flex items-center justify-end gap-2 mt-2"
-  }, window.MFG_USER && window.MFG_USER.isAdmin && React.createElement("button", {
-    type: "button",
-    onClick: importFromGoogle,
-    className: "px-3 py-1 bg-slate-600 hover:bg-slate-700 text-white text-xs rounded-lg font-medium transition-colors",
-    title: "Google 공유저장소의 최신 TCP 백업을 가져와 이 서버 데이터로 바꿉니다 (Google 원본은 그대로)"
-  }, "📦 Google 백업 가져오기"), React.createElement("button", {
+  }, React.createElement("button", {
     type: "button",
     onClick: async () => {
       const now = new Date();
@@ -4627,9 +4622,9 @@ function MFGProductionApp() {
       }
       setFormError(`✅ ${filename} 저장완료`);
     },
-    className: "px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-xs rounded-lg font-medium transition-colors"
+    className: "hidden"
   }, "📤 공유폴더에 저장"), React.createElement("label", {
-    className: "px-3 py-1 bg-cyan-500 hover:bg-cyan-600 text-white text-xs rounded-lg font-medium transition-colors cursor-pointer"
+    className: "hidden"
   }, "📥 공유폴더에서 불러오기", React.createElement("input", {
     type: "file",
     accept: ".json",
@@ -14297,27 +14292,15 @@ function MFGProductionApp() {
     className: "text-sm space-y-2"
   }, React.createElement("li", null, React.createElement("span", {
     className: "font-medium"
-  }, "자동 저장:"), " 브라우저 내 IndexedDB에 자동 저장 (최대 500MB)"), React.createElement("li", null, React.createElement("span", {
+  }, "자동 저장:"), " 입력하면 바로 서버에 저장 — 모든 PC가 같은 데이터"), React.createElement("li", null, React.createElement("span", {
     className: "font-medium"
-  }, "공유폴더 저장:"), " JSON 파일로 내보내기 → 공유폴더에 저장"))), React.createElement("div", {
+  }, "백업:"), " 3시간마다 공유저장소에 백업 파일 자동 생성 (최근 60개)"))), React.createElement("div", {
     className: "bg-white p-4 rounded-lg border"
   }, React.createElement("div", {
     className: "font-semibold text-orange-700 mb-2"
-  }, "🔄 여러 사람이 함께 사용하기"), React.createElement("ol", {
-    className: "text-sm space-y-2 list-decimal list-inside"
-  }, React.createElement("li", null, "공유폴더에 ", React.createElement("code", {
-    className: "bg-gray-100 px-1 rounded"
-  }, "mfg-app.html"), " 저장"), React.createElement("li", null, "작업 시작 전: ", React.createElement("span", {
-    className: "text-cyan-600 font-medium"
-  }, "📥 공유폴더에서 불러오기"), " 클릭"), React.createElement("li", null, "작업 완료 후: ", React.createElement("span", {
-    className: "text-orange-600 font-medium"
-  }, "📤 공유폴더에 저장"), " 클릭"), React.createElement("li", null, "파일명은 자동으로 ", React.createElement("code", {
-    className: "bg-gray-100 px-1 rounded"
-  }, "202501151730.json"), " (날짜시간) 형식"))), React.createElement("div", {
-    className: "bg-yellow-100 p-3 rounded-lg text-sm"
-  }, React.createElement("span", {
-    className: "font-semibold"
-  }, "⚠️ 주의:"), " 동시에 여러 사람이 저장하면 마지막 저장만 남습니다. 저장 전 팀원에게 알려주세요!"))), React.createElement("div", {
+  }, "🔄 여러 사람이 함께 사용하기"), React.createElement("p", {
+    className: "text-sm"
+  }, "따로 할 것 없음 — 각자 입력하면 건별로 서버에 저장되고, 다른 PC의 입력은 60초 안에 자동으로 반영됩니다.")))), React.createElement("div", {
     id: "help-settings",
     className: "mb-8 p-5 bg-gray-100 rounded-xl border border-gray-300"
   }, React.createElement("h3", {
