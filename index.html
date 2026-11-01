@@ -17,7 +17,7 @@
 <script>
 (function() {
   var APP_NAME = 'TCP 생산관리 시스템';
-  var APP_VER = 'V089S';
+  var APP_VER = 'V090S';
   var SB_DEFAULT_URL = 'https://tmbeaswlpvsyjehacgsa.supabase.co';
   var SB_DEFAULT_KEY = 'sb_publishable_OM6ITpYn8LYPWXXhwdA4kQ_HuAyAxV9';
   var CFG_KEY = 'mfg-sb-test-cfg', AUTH_KEY = 'mfg-sb-test-auth', LAST_EMAIL = 'mfg-sb-test-last-email';
@@ -918,8 +918,24 @@ async function __pruneOldBackups(gasUrl, prefix, keep) {
   } catch (e) { /* 정리 실패는 무시 */ }
 }
 
+
+// 긴 목록은 최근 것부터 일부만 그림 (탭 전환이 느려지지 않게) — "더 보기 / 전체 보기"로 펼침
+const __limStore = {};
+function __lim(arr, key, def) { const n = __limStore[key] || def; return arr.length > n ? arr.slice(0, n) : arr; }
+function __more(arr, key, def, cols) {
+  const n = __limStore[key] || def;
+  if (arr.length <= n) return null;
+  const bump = v => { __limStore[key] = v; if (window.__mfgLimTick) window.__mfgLimTick(t => t + 1); };
+  return React.createElement("tr", { key: "__more_" + key }, React.createElement("td", { colSpan: cols, className: "px-4 py-3 text-center bg-gray-50 border-t" },
+    React.createElement("span", { className: "text-xs text-gray-500 mr-3" }, "최근 " + n.toLocaleString() + "건만 표시 · 전체 " + arr.length.toLocaleString() + "건 (필터로 찾을 수 있음)"),
+    React.createElement("button", { type: "button", onClick: () => bump(n + def), className: "px-3 py-1 mr-2 text-xs rounded bg-slate-700 text-white hover:bg-slate-800" }, def + "건 더 보기"),
+    React.createElement("button", { type: "button", onClick: () => bump(1e9), className: "px-3 py-1 text-xs rounded border border-slate-300 text-slate-700 hover:bg-white" }, "전체 보기")));
+}
 function MFGProductionApp() {
   const [activeTab, setActiveTab] = useState('production');
+  const [__limTick, __setLimTick] = useState(0);
+  window.__mfgLimTick = __setLimTick;
+  React.useEffect(() => { for (const k in __limStore) delete __limStore[k]; }, [activeTab]);   // 탭을 바꾸면 다시 최근 것만
   const [activeSection, setActiveSection] = useState('TCP');
   const [isLoading, setIsLoading] = useState(true);
   const [storageSize, setStorageSize] = useState(0);
@@ -4475,7 +4491,7 @@ function MFGProductionApp() {
       className: "text-gray-500"
     }, "데이터를 불러오는 중... ", React.createElement("span", {
       className: "text-xs font-mono text-gray-400"
-    }, "V089S"))));
+    }, "V090S"))));
   }
   return React.createElement("div", {
     className: "w-full h-screen bg-gray-100 flex flex-col",
@@ -4523,7 +4539,7 @@ function MFGProductionApp() {
     className: "text-2xl font-bold"
   }, "TCP 생산관리 시스템"), React.createElement("span", {
     className: "ml-2 px-2 py-0.5 bg-white/20 rounded text-xs font-mono font-bold align-middle"
-  }, "V089S")), React.createElement("div", {
+  }, "V090S")), React.createElement("div", {
     className: "text-right"
   }, React.createElement("div", {
     className: "text-sm opacity-80"
@@ -5325,7 +5341,7 @@ function MFGProductionApp() {
   }, "관리"))), React.createElement("tbody", null, filteredLogs.length === 0 ? React.createElement("tr", null, React.createElement("td", {
     colSpan: "13",
     className: "px-4 py-8 text-center text-gray-400"
-  }, "등록된 ", activeSection, " 생산일지가 없습니다.")) : filteredLogs.map(log => {
+  }, "등록된 ", activeSection, " 생산일지가 없습니다.")) : __lim(filteredLogs, 'prodList', 100).map(log => {
     const isEditing = editingLogId === log.id;
     const updateLog = (field, value) => {
       setProductionLogs(prev => prev.map(l => l.id === log.id ? {
@@ -5546,7 +5562,7 @@ function MFGProductionApp() {
       onClick: () => deleteLog(log.id),
       className: "text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors text-sm"
     }, "삭제"))));
-  }))))))), showLogFilter && React.createElement("div", {
+  }), __more(filteredLogs, 'prodList', 100, 30))))))), showLogFilter && React.createElement("div", {
     className: "fixed inset-0 z-10",
     onClick: () => setShowLogFilter(null)
   }), planWorkerModal.show && React.createElement("div", {
@@ -8510,7 +8526,7 @@ function MFGProductionApp() {
   }, "종료"))), React.createElement("tbody", null, filteredLogs.length === 0 ? React.createElement("tr", null, React.createElement("td", {
     colSpan: "11",
     className: "px-4 py-8 text-center text-gray-400"
-  }, activeSection, " 생산일지를 먼저 등록해주세요.")) : filteredLogs.map(log => React.createElement("tr", {
+  }, activeSection, " 생산일지를 먼저 등록해주세요.")) : __lim(filteredLogs, 'pick1', 200).map(log => React.createElement("tr", {
     key: log.id,
     className: `cursor-pointer hover:bg-orange-50 ${selectedLogId === log.id ? 'bg-orange-100' : ''}`,
     onClick: () => setSelectedLogId(log.id)
@@ -8543,7 +8559,7 @@ function MFGProductionApp() {
     className: "px-2 py-2 text-xs text-center"
   }, log.startTime), React.createElement("td", {
     className: "px-2 py-2 text-xs text-center"
-  }, log.endTime))))))), React.createElement("div", null, React.createElement("h3", {
+  }, log.endTime))), __more(filteredLogs, 'pick1', 200, 11))))), React.createElement("div", null, React.createElement("h3", {
     className: "text-lg font-semibold text-gray-700 mb-4"
   }, "비가동 정보 입력"), selectedLog && React.createElement("div", {
     className: "mb-4 p-3 rounded-lg text-sm ${activeSection === 'TCP' ? 'bg-blue-50' : 'bg-green-50'}"
@@ -8773,7 +8789,7 @@ function MFGProductionApp() {
   }, "종료"))), React.createElement("tbody", null, filteredLogs.length === 0 ? React.createElement("tr", null, React.createElement("td", {
     colSpan: "11",
     className: "px-4 py-8 text-center text-gray-400"
-  }, activeSection, " 생산일지를 먼저 등록해주세요.")) : filteredLogs.map(log => React.createElement("tr", {
+  }, activeSection, " 생산일지를 먼저 등록해주세요.")) : __lim(filteredLogs, 'pick2', 200).map(log => React.createElement("tr", {
     key: log.id,
     className: `cursor-pointer hover:bg-red-50 ${selectedLogId === log.id ? 'bg-red-100' : ''}`,
     onClick: () => setSelectedLogId(log.id)
@@ -8806,7 +8822,7 @@ function MFGProductionApp() {
     className: "px-2 py-2 text-xs text-center"
   }, log.startTime), React.createElement("td", {
     className: "px-2 py-2 text-xs text-center"
-  }, log.endTime))))))), React.createElement("div", null, React.createElement("h3", {
+  }, log.endTime))), __more(filteredLogs, 'pick2', 200, 11))))), React.createElement("div", null, React.createElement("h3", {
     className: "text-lg font-semibold text-gray-700 mb-4"
   }, "불량 정보 입력"), selectedLog && React.createElement("div", {
     className: `mb-4 p-3 rounded-lg text-sm ${activeSection === 'TCP' ? 'bg-blue-50' : 'bg-green-50'}`
@@ -9064,7 +9080,7 @@ function MFGProductionApp() {
   }, "종료"))), React.createElement("tbody", null, filteredLogs.length === 0 ? React.createElement("tr", null, React.createElement("td", {
     colSpan: "11",
     className: "px-4 py-8 text-center text-gray-400"
-  }, activeSection, " 생산일지를 먼저 등록해주세요.")) : filteredLogs.map(log => React.createElement("tr", {
+  }, activeSection, " 생산일지를 먼저 등록해주세요.")) : __lim(filteredLogs, 'pick3', 200).map(log => React.createElement("tr", {
     key: log.id,
     className: `cursor-pointer hover:bg-purple-50 ${selectedLogId === log.id ? 'bg-purple-100' : ''}`,
     onClick: () => setSelectedLogId(log.id)
@@ -9097,7 +9113,7 @@ function MFGProductionApp() {
     className: "px-2 py-2 text-xs text-center"
   }, log.startTime), React.createElement("td", {
     className: "px-2 py-2 text-xs text-center"
-  }, log.endTime))))))), React.createElement("div", null, React.createElement("h3", {
+  }, log.endTime))), __more(filteredLogs, 'pick3', 200, 11))))), React.createElement("div", null, React.createElement("h3", {
     className: "text-lg font-semibold text-gray-700 mb-4"
   }, "공정불량 정보 입력"), selectedLog && React.createElement("div", {
     className: `mb-4 p-3 rounded-lg text-sm ${activeSection === 'TCP' ? 'bg-blue-50' : 'bg-green-50'}`
@@ -9350,7 +9366,7 @@ function MFGProductionApp() {
   }, "종료"))), React.createElement("tbody", null, filteredLogs.length === 0 ? React.createElement("tr", null, React.createElement("td", {
     colSpan: "11",
     className: "px-4 py-8 text-center text-gray-400"
-  }, activeSection, " 생산일지를 먼저 등록해주세요.")) : filteredLogs.map(log => React.createElement("tr", {
+  }, activeSection, " 생산일지를 먼저 등록해주세요.")) : __lim(filteredLogs, 'pick4', 200).map(log => React.createElement("tr", {
     key: log.id,
     className: `cursor-pointer hover:bg-amber-50 ${selectedLogId === log.id ? 'bg-amber-100' : ''}`,
     onClick: () => setSelectedLogId(log.id)
@@ -9383,7 +9399,7 @@ function MFGProductionApp() {
     className: "px-2 py-2 text-xs text-center"
   }, log.startTime), React.createElement("td", {
     className: "px-2 py-2 text-xs text-center"
-  }, log.endTime))))))), React.createElement("div", null, React.createElement("h3", {
+  }, log.endTime))), __more(filteredLogs, 'pick4', 200, 11))))), React.createElement("div", null, React.createElement("h3", {
     className: "text-lg font-semibold text-gray-700 mb-4"
   }, "재작업 정보 입력"), selectedLog && React.createElement("div", {
     className: `mb-4 p-3 rounded-lg text-sm ${activeSection === 'TCP' ? 'bg-blue-50' : 'bg-green-50'}`
@@ -9662,7 +9678,7 @@ function MFGProductionApp() {
     }, "등록일시"))), React.createElement("tbody", null, historyLogs.length === 0 ? React.createElement("tr", null, React.createElement("td", {
       colSpan: "12",
       className: "px-4 py-12 text-center text-gray-400"
-    }, "조회된 생산이력이 없습니다.")) : historyLogs.map((log, index) => React.createElement("tr", {
+    }, "조회된 생산이력이 없습니다.")) : __lim(historyLogs, 'history', 300).map((log, index) => React.createElement("tr", {
       key: log.id,
       className: "hover:bg-gray-50 transition-colors"
     }, React.createElement("td", {
@@ -9693,7 +9709,7 @@ function MFGProductionApp() {
       className: "px-3 py-3 text-sm text-gray-800 border-b text-center"
     }, log.startTime, " ~ ", log.endTime), React.createElement("td", {
       className: "px-3 py-3 text-sm text-gray-500 border-b text-center"
-    }, log.createdAt)))))));
+    }, log.createdAt))), __more(historyLogs, 'history', 300, 30)))));
   })(), activeTab === 'lot' && (() => {
     const filteredLotLogs = productionLogs.filter(log => {
       if (log.section !== activeSection) return false;
@@ -9866,7 +9882,7 @@ function MFGProductionApp() {
     }, "BOM"))), React.createElement("tbody", null, filteredLotLogs.length === 0 ? React.createElement("tr", null, React.createElement("td", {
       colSpan: 9,
       className: "px-3 py-8 text-center text-gray-400"
-    }, "등록된 TCP 생산이력이 없습니다.")) : filteredLotLogs.map((log, idx) => {
+    }, "등록된 TCP 생산이력이 없습니다.")) : __lim(filteredLotLogs, 'lot', 100).map((log, idx) => {
       const bomListAll = getBomForLog(log);
       const hiddenForItem = lotHiddenBoms[log.item] || [];
       const bomList = bomListAll.filter(b => !hiddenForItem.includes(b.name));
@@ -9955,7 +9971,7 @@ function MFGProductionApp() {
       }, React.createElement("span", null, bom.name), React.createElement("span", {
         className: "text-violet-500 font-bold"
       }, "↩")))))))));
-    })))));
+    }), __more(filteredLotLogs, 'lot', 100, 9)))));
   })(), activeTab === 'oee' && React.createElement("div", {
     className: "bg-white rounded-xl shadow-lg p-6"
   }, React.createElement("div", {
