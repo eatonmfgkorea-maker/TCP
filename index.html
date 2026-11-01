@@ -17,7 +17,7 @@
 <script>
 (function() {
   var APP_NAME = 'TCP 생산관리 시스템';
-  var APP_VER = 'V090S';
+  var APP_VER = 'V091S';
   var SB_DEFAULT_URL = 'https://tmbeaswlpvsyjehacgsa.supabase.co';
   var SB_DEFAULT_KEY = 'sb_publishable_OM6ITpYn8LYPWXXhwdA4kQ_HuAyAxV9';
   var CFG_KEY = 'mfg-sb-test-cfg', AUTH_KEY = 'mfg-sb-test-auth', LAST_EMAIL = 'mfg-sb-test-last-email';
@@ -2071,7 +2071,8 @@ function MFGProductionApp() {
     const S = sbRef.current; const client = sbClient();
     if (!client || !S.ready || (S.pushing && !strict)) return;
     try {
-      const since = S.lastPull;
+      // 5분 겹쳐 받기: 동시에 저장된 기록이 시각 순서가 엇갈려도 빠지지 않게 (이미 받은 건 내용 비교로 건너뜀)
+      const since = new Date(Math.max(0, Date.parse(S.lastPull) - 5 * 60000)).toISOString();
       const logs = await sbFetchAll(client, 'prod_logs', q => q.gt('updated_at', since));
       const states = await sbFetchAll(client, 'prod_state', q => q.gt('updated_at', since));
       let changed = 0; const byKind = {};
@@ -4491,7 +4492,7 @@ function MFGProductionApp() {
       className: "text-gray-500"
     }, "데이터를 불러오는 중... ", React.createElement("span", {
       className: "text-xs font-mono text-gray-400"
-    }, "V090S"))));
+    }, "V091S"))));
   }
   return React.createElement("div", {
     className: "w-full h-screen bg-gray-100 flex flex-col",
@@ -4539,7 +4540,7 @@ function MFGProductionApp() {
     className: "text-2xl font-bold"
   }, "TCP 생산관리 시스템"), React.createElement("span", {
     className: "ml-2 px-2 py-0.5 bg-white/20 rounded text-xs font-mono font-bold align-middle"
-  }, "V090S")), React.createElement("div", {
+  }, "V091S")), React.createElement("div", {
     className: "text-right"
   }, React.createElement("div", {
     className: "text-sm opacity-80"
